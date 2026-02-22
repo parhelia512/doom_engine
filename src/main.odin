@@ -5,8 +5,9 @@ import rl "vendor:raylib"
 import "engine"
 import "core:math"
 
-WIDTH::1280
-HEIGHT::720
+
+WIDTH::1700
+HEIGHT::1000
 TITLE :: "DOOM"
 
 PLAYER_SPEED :: 3
@@ -18,8 +19,48 @@ JUMP_HEIGHT :: 2.5
 
 PLAYER_HEIGHT::5
 
+
+make_line :: proc(
+    p1, p2: int,
+    sf:int = -1,
+    sb: int = -1,
+    portal:bool = false,
+    texture: engine.LineTexture = engine.LineTexture{},
+)->engine.Line {
+    return engine.Line {
+        p1=p1,
+        p2=p2,
+        sf=sf,
+        sb=sb,
+        portal=portal,
+        texture=texture,
+    } 
+}
+
+make_line_texture_f :: proc(s:engine.WallTextures)->engine.LineTexture {
+    return engine.LineTexture {
+        front=s
+    }
+}
+make_line_texture_b :: proc(s:engine.WallTextures)->engine.LineTexture {
+    return engine.LineTexture {
+        back=s
+    }
+}
+make_line_texture_a :: proc(s:engine.WallTextures)->engine.LineTexture {
+    return engine.LineTexture {
+        back=s,
+        front=s,
+    }
+}
+make_line_texture_fb :: proc(f, b:engine.WallTextures)->engine.LineTexture {
+    return engine.LineTexture {
+        front=f,
+        back=b,
+    }
+}
+
 make_world :: proc(world: ^engine.World) {
-    fmt.println(WIDTH, HEIGHT)
     using engine
     append(&world.points, Vec2{-10, -5})
     append(&world.points, Vec2{0, -5})
@@ -34,23 +75,87 @@ make_world :: proc(world: ^engine.World) {
     s1.floor= 0
 
     s2:Sector
-    s2.height= 10
+    s2.height=10 
     s2.floor= -1
 
     append(&world.sectors, s1)
     append(&world.sectors, s2)
 
-    append(&world.lines, Line{0, 1, false, 0, -1})
-    append(&world.lines, Line{1, 2, false, 1, -1})
+    append(&world.lines, make_line(
+            0,
+            1,
+            0,
+            -1,
+            false,
+            make_line_texture_f(WallTextures{
+                middle=WallTexture{"wall", 0}
+                })
+    ))
+    append(&world.lines, make_line(
+            1,
+            2,
+            1,
+            -1,
+            false,
+            make_line_texture_f(WallTextures{
+                middle=WallTexture{"wall", Vec2{0, 1}}
+                })
+    ))
 
-    append(&world.lines, Line{3, 4, false, -1, 0})
-    append(&world.lines, Line{4, 5, false, -1, 1})
+    append(&world.lines, make_line(
+            3,
+            4,
+            -1,
+            0,
+            false,
+            make_line_texture_b(WallTextures{
+                middle=WallTexture{"wall", 0}
+                })
+    ))
+    append(&world.lines, make_line(
+            4,
+            5,
+            -1,
+            1,
+            false,
+            make_line_texture_b(WallTextures{
+                middle=WallTexture{"wall", Vec2{0, 1}}
+                })
+    ))
 
 
-    append(&world.lines, Line{0, 3, false, -1, 0})
-    append(&world.lines, Line{2, 5, false, 1, -1})
+    append(&world.lines, make_line(
+            0,
+            3,
+            -1,
+            0,
+            false,
+            make_line_texture_b(WallTextures{
+                middle=WallTexture{"wall", 0}
+                })
+    ))
+    append(&world.lines, make_line(
+            2,
+            5,
+            1,
+            -1,
+            false,
+            make_line_texture_f(WallTextures{
+                middle=WallTexture{"wall", Vec2{0, 1}}
+                })
+    ))
 
-    append(&world.lines, Line{1, 4, true, 0, 1})
+    append(&world.lines, make_line(
+            1,
+            4,
+            0,
+            1,
+            true,
+            make_line_texture_a(WallTextures{
+                top=WallTexture{"wall", 0},
+                bottom=WallTexture{"wall", 0},
+            })
+    ))
 }
 
 controls :: proc(player: ^engine.Player) {
@@ -119,6 +224,12 @@ update :: proc(player: ^engine.Player, world: ^engine.World) {
     controls(player) 
 }
 
+get_textures :: proc() {
+    using engine
+    gen_default(10, 10)
+    set_texture("wall", "./assets/textures/startan2.png", 10, 10)
+}
+
 main :: proc() {
     using rl
     using engine
@@ -129,14 +240,18 @@ main :: proc() {
     player.rot = math.PI/2
     player.height = PLAYER_HEIGHT
     InitWindow(WIDTH, HEIGHT, TITLE)
+    get_textures()
     SetExitKey(KeyboardKey.KEY_NULL)
     for !WindowShouldClose() {
         update(&player, &world)
         BeginDrawing()
         ClearBackground(BLACK)
         render_world(&world, &player)
+        DrawFPS(10, 10)
         EndDrawing()
     }
     CloseWindow()
+
+    free_world(&world);
 }
 
