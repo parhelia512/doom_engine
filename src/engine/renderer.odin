@@ -191,7 +191,7 @@ draw_floor :: proc(
         if v < 0 { v += i32(tex.texture.height) }
 
         dest_rect := rl.Rectangle{x=f32(x), y=f32(py), width=f32(width), height=f32(RAYRES)}
-        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u)), height=1.0}
+        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u + tex.texture.width)%tex.texture.width), height=1.0}
 
         rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
     }
@@ -248,7 +248,7 @@ draw_ceil :: proc(
         if v < 0 { v += i32(tex.texture.height) }
 
         dest_rect := rl.Rectangle{x=f32(x), y=f32(py), width=f32(width), height=f32(RAYRES)}
-        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u)), height=1.0}
+        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u + tex.texture.width)%tex.texture.width), height=1.0}
 
         rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
     }
