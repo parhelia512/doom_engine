@@ -2,5 +2,7 @@
 - [X] handle gravity
 - [X] handle textures
 - [X] handle flats
-- [ ] make ceil and floor drawing faster
+- [X] make ceil and floor drawing faster
 - [ ] fix janky ceil and floor calculations
+- [ ] fix the broken texture
+    because of the speed up from the ceiling and floor rendering fix, some of the textures are broken

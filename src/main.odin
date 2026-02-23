@@ -192,7 +192,7 @@ controls :: proc(player: ^engine.Player) {
         player.height = PLAYER_HEIGHT
     }
     if IsKeyDown(KeyboardKey.SPACE) {
-        if player.pos.y == player.wanted_y {
+        if player.pos.y <= player.wanted_y {
             player.vel.y += JUMP_HEIGHT 
         }
     }
@@ -219,8 +219,6 @@ controls :: proc(player: ^engine.Player) {
         player.vel.x = n.x 
         player.vel.z = n.y 
     } 
-
-
     //TASK(20260220-082010-127-n6-265): handle gravity
 }
 
