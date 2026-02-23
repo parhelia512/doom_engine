@@ -37,23 +37,23 @@ make_line :: proc(
     } 
 }
 
-make_line_texture_f :: proc(s:engine.WallTextures)->engine.LineTexture {
+make_line_texture_f :: proc(s:engine.WallTexture)->engine.LineTexture {
     return engine.LineTexture {
         front=s
     }
 }
-make_line_texture_b :: proc(s:engine.WallTextures)->engine.LineTexture {
+make_line_texture_b :: proc(s:engine.WallTexture)->engine.LineTexture {
     return engine.LineTexture {
         back=s
     }
 }
-make_line_texture_a :: proc(s:engine.WallTextures)->engine.LineTexture {
+make_line_texture_a :: proc(s:engine.WallTexture)->engine.LineTexture {
     return engine.LineTexture {
         back=s,
         front=s,
     }
 }
-make_line_texture_fb :: proc(f, b:engine.WallTextures)->engine.LineTexture {
+make_line_texture_fb :: proc(f, b:engine.WallTexture)->engine.LineTexture {
     return engine.LineTexture {
         front=f,
         back=b,
@@ -73,10 +73,14 @@ make_world :: proc(world: ^engine.World) {
     s1:Sector
     s1.height=10
     s1.floor= 0
+    s1.floor_text = EngineTexture{"flat1", 0}
+    s1.ceil_text= EngineTexture{"ceil1", 0}
 
     s2:Sector
     s2.height=10 
     s2.floor= -1
+    s2.floor_text = EngineTexture{"flat2", 0}
+    s2.ceil_text= EngineTexture{"ceil2", 0}
 
     append(&world.sectors, s1)
     append(&world.sectors, s2)
@@ -87,8 +91,8 @@ make_world :: proc(world: ^engine.World) {
             0,
             -1,
             false,
-            make_line_texture_f(WallTextures{
-                middle=WallTexture{"wall", 0}
+            make_line_texture_f(WallTexture{
+                middle=EngineTexture{"wall", 0}
                 })
     ))
     append(&world.lines, make_line(
@@ -97,8 +101,8 @@ make_world :: proc(world: ^engine.World) {
             1,
             -1,
             false,
-            make_line_texture_f(WallTextures{
-                middle=WallTexture{"wall", Vec2{0, 1}}
+            make_line_texture_f(WallTexture{
+                middle=EngineTexture{"wall", Vec2{0, 1}}
                 })
     ))
 
@@ -108,8 +112,8 @@ make_world :: proc(world: ^engine.World) {
             -1,
             0,
             false,
-            make_line_texture_b(WallTextures{
-                middle=WallTexture{"wall", 0}
+            make_line_texture_b(WallTexture{
+                middle=EngineTexture{"wall", 0}
                 })
     ))
     append(&world.lines, make_line(
@@ -118,8 +122,8 @@ make_world :: proc(world: ^engine.World) {
             -1,
             1,
             false,
-            make_line_texture_b(WallTextures{
-                middle=WallTexture{"wall", Vec2{0, 1}}
+            make_line_texture_b(WallTexture{
+                middle=EngineTexture{"wall", Vec2{0, 1}}
                 })
     ))
 
@@ -130,8 +134,8 @@ make_world :: proc(world: ^engine.World) {
             -1,
             0,
             false,
-            make_line_texture_b(WallTextures{
-                middle=WallTexture{"wall", 0}
+            make_line_texture_b(WallTexture{
+                middle=EngineTexture{"wall", 0}
                 })
     ))
     append(&world.lines, make_line(
@@ -140,8 +144,8 @@ make_world :: proc(world: ^engine.World) {
             1,
             -1,
             false,
-            make_line_texture_f(WallTextures{
-                middle=WallTexture{"wall", Vec2{0, 1}}
+            make_line_texture_f(WallTexture{
+                middle=EngineTexture{"wall", Vec2{0, 1}}
                 })
     ))
 
@@ -151,9 +155,9 @@ make_world :: proc(world: ^engine.World) {
             0,
             1,
             true,
-            make_line_texture_a(WallTextures{
-                top=WallTexture{"wall", 0},
-                bottom=WallTexture{"wall", 0},
+            make_line_texture_a(WallTexture{
+                top=EngineTexture{"wall", 0},
+                bottom=EngineTexture{"wall", 0},
             })
     ))
 }
@@ -228,6 +232,10 @@ get_textures :: proc() {
     using engine
     gen_default(10, 10)
     set_texture("wall", "./assets/textures/startan2.png", 10, 10)
+    set_texture("flat1", "./assets/flats/flat10.png", 10, 10)
+    set_texture("flat2", "./assets/flats/flat1.png", 10, 10)
+    set_texture("ceil1", "./assets/flats/flat5.png", 10, 10)
+    set_texture("ceil2", "./assets/flats/ceil3_3.png", 10, 10)
 }
 
 main :: proc() {

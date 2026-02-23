@@ -1,3 +1,6 @@
 # TODOS
 - [X] handle gravity
-- [ ] handle textures and flats
+- [X] handle textures
+- [X] handle flats
+- [ ] make ceil and floor drawing faster
+- [ ] fix janky ceil and floor calculations

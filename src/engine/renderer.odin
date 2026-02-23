@@ -3,13 +3,17 @@ import rl "vendor:raylib"
 import "core:fmt"
 import "core:math"
 
-//TASK(20260220-205008-328-n6-902): handle textures and flats
+//TASK(20260220-205008-328-n6-902): handle textures
+
+//TASK(20260223-074630-917-n6-626): handle flats
+
+
 
 RAYLEN::1000
 
 MAX_DEPTH:: 1000
 
-RAYRES::4
+RAYRES::5
 
 FOV::math.PI/2
 
@@ -19,11 +23,13 @@ Info :: struct {
     floor: f32,
     is_portal: bool,
     point: Vec2,
-    line_text: WallTexture,
-    bottom_text: WallTexture,
-    top_text: WallTexture,
+    line_text: EngineTexture,
+    bottom_text: EngineTexture,
+    top_text: EngineTexture,
     p1,
     p2: Vec2,
+    floor_texture: EngineTexture,
+    ceil_texture: EngineTexture,
 }
 
 ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) {
@@ -59,6 +65,8 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
                     top_text=t.top,
                     p1=isback?p2:p1,
                     p2=isback?p1:p2,
+                    floor_texture=sector.floor_text,
+                    ceil_texture=sector.ceil_text,
                 }
             }
         }
@@ -71,7 +79,7 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
 
 draw_rect :: proc(
     x, y, width, height: i32,
-    wall_texture: WallTexture,
+    wall_texture: EngineTexture,
     wall_dist,
     wall_height: f32,
     p1, p2, hit_point: Vec2,
@@ -127,6 +135,119 @@ draw_rect :: proc(
     )
 }
 
+
+//TASK(20260223-112731-390-n6-030): make ceil and floor drawing faster
+
+//TASK(20260223-112751-481-n6-798): fix janky ceil and floor calculations
+draw_floor :: proc(
+    x,
+    y_start,
+    width: i32,
+    texture: EngineTexture,
+    player: ^Player,
+    angle,
+    screen_center_y,
+    projection_plane_dist,
+    floor_y: f32,
+    floor_end: i32,
+) {
+    if texture.texture == "" {
+        return
+    }
+    using rl
+
+    screen_width := GetScreenWidth()
+    tex := get_texture(texture.texture)
+
+    player_eye := player.pos.y + player.height
+    s := player_eye - floor_y
+
+    for py := y_start; py < floor_end; py += RAYRES {
+        row_dist := s * projection_plane_dist / (f32(py) - screen_center_y)
+
+        for px := x; px < x+width; px+=1 {
+            camera_x := 2.0 * f32(px) / f32(screen_width) - 1.0
+
+            floor_world_x := row_dist * camera_x
+            floor_world_y := row_dist
+            vec:=rotate(Vec2{player.pos.x, -player.pos.z}, player.rot)
+            floor_world_x+=vec.x
+            floor_world_y+=vec.y
+
+            cos_r := math.cos(-player.rot)
+            sin_r := math.sin(-player.rot)
+            world_x := floor_world_x * cos_r - floor_world_y * sin_r
+            world_z := floor_world_x * sin_r + floor_world_y * cos_r
+
+            u := i32(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
+            v := i32(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height)) % i32(tex.texture.height)
+
+            if u < 0 { u += i32(tex.texture.width) }
+            if v < 0 { v += i32(tex.texture.height) }
+
+            dest_rect := rl.Rectangle{x=f32(px), y=f32(py), width=1.0, height=f32(RAYRES)}
+            src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=1.0, height=1.0}
+
+            rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
+        }
+    }
+}
+
+draw_ceil :: proc(
+    x,
+    y_start,
+    width: i32,
+    texture: EngineTexture,
+    player: ^Player,
+    angle,
+    screen_center_y,
+    projection_plane_dist,
+    ceil_y: f32,
+    ceil_end: i32,
+) {
+    if texture.texture == "" {
+        return
+    }
+    using rl
+
+    screen_width := GetScreenWidth()
+    tex := get_texture(texture.texture)
+
+    player_eye := player.pos.y + player.height
+    s := ceil_y - player_eye
+
+    for py := y_start; py > ceil_end; py -= RAYRES {
+        row_dist := s * projection_plane_dist / (screen_center_y - f32(py))
+
+        for px := x; px < x+width; px+=1 {
+            camera_x := 2.0 * f32(px) / f32(screen_width) - 1.0
+
+            ceil_world_x := row_dist * camera_x
+            ceil_world_y := row_dist
+
+            vec := rotate(Vec2{player.pos.x, -player.pos.z}, player.rot)
+            ceil_world_x += vec.x
+            ceil_world_y += vec.y
+
+            cos_r := math.cos(-player.rot)
+            sin_r := math.sin(-player.rot)
+            world_x := ceil_world_x * cos_r - ceil_world_y * sin_r
+            world_z := ceil_world_x * sin_r + ceil_world_y * cos_r
+
+            u := i32(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
+            v := i32(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height)) % i32(tex.texture.height)
+
+            if u < 0 { u += i32(tex.texture.width) }
+            if v < 0 { v += i32(tex.texture.height) }
+
+            dest_rect := rl.Rectangle{x=f32(px), y=f32(py), width=1.0, height=f32(RAYRES)}
+            src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=1.0, height=1.0}
+
+            rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
+        }
+    }
+}
+
 render_ray :: proc(world: ^World,
     player: ^Player,
     i: int,
@@ -136,10 +257,12 @@ render_ray :: proc(world: ^World,
     projection_plane_dist: f32,
     ray_start:Vec2,
     max_depth: i32,
-    add_dist: f32 =0
+    floor_end: i32,
+    ceil_end: i32,
+    add_dist: f32 = 0,
 ) -> (bool, Info) {
     if max_depth <= 0 {
-        return false, Info{0, 0, 0, false, 0, WallTexture{}, WallTexture{}, WallTexture{}, 0, 0} 
+        return false, Info{} 
     }
     using rl;
     x:= f32(i)*width
@@ -157,6 +280,9 @@ render_ray :: proc(world: ^World,
 
     height:=info.height
 
+    owall_bottom :=wall_bottom
+    owall_top :=wall_top
+
     if info.is_portal {
         epsilon:f32=0.0001
         icollide, iinfo := render_ray(
@@ -169,7 +295,9 @@ render_ray :: proc(world: ^World,
             projection_plane_dist, 
             info.point+rotate(Vec2{0, -epsilon}, angle), 
             max_depth-1,
-            info.dist + epsilon + add_dist
+            i32(owall_bottom),
+            i32(owall_top),
+            info.dist + epsilon + add_dist,
         )
         if !icollide {
             return collide, info
@@ -212,6 +340,32 @@ render_ray :: proc(world: ^World,
             height-=iinfo.floor-info.floor
         }
     }
+    text:=get_texture("a")
+
+    draw_floor(
+        i32(x),
+        i32(owall_bottom),
+        i32(width),
+        info.floor_texture,
+        player,
+        angle,
+        screen_center_y,
+        projection_plane_dist,
+        info.floor,
+        math.min(floor_end, GetScreenHeight()),
+    )
+    draw_ceil(
+        i32(x),
+        i32(owall_top),
+        i32(width),
+        info.ceil_texture,
+        player,
+        angle,
+        screen_center_y,
+        projection_plane_dist,
+        info.floor+info.height,
+        math.max(ceil_end, 0),
+    )
 
     draw_rect(
         i32(x),
@@ -232,12 +386,23 @@ render_world :: proc(world: ^World, player: ^Player) {
     using rl
     raynum:=math.floor_f32(f32(rl.GetScreenWidth())/RAYRES)
     delta_angle:=FOV/(raynum-1)
-    width:=f32(rl.GetScreenWidth())/raynum
-    projection_plane_dist := f32(rl.GetScreenWidth()/2) / math.tan_f32(FOV/2)
-    screen_center_y := f32(rl.GetScreenHeight())/2
+    width:=f32(RAYRES)
+    projection_plane_dist := f32(GetScreenWidth()/2) / math.tan_f32(FOV/2)
+    screen_center_y := f32(GetScreenHeight())/2
     for i := 0; f32(i) < raynum; i+=1 {
         angle := player.rot - FOV/2 + f32(i)*delta_angle
-        collide, info := render_ray(world, player, i, width, angle, screen_center_y, projection_plane_dist, player.pos.xz, MAX_DEPTH)
+        collide, info := render_ray(world,
+            player,
+            i,
+            width,
+            angle,
+            screen_center_y,
+            projection_plane_dist,
+            player.pos.xz,
+            MAX_DEPTH,
+            GetScreenHeight(),
+            0,
+            )
         if collide {
             player.wanted_y = info.floor
         }

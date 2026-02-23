@@ -3,16 +3,16 @@ package engine;
 import "core:mem"
 import rl "vendor:raylib"
 
-WallTextures :: struct {
+WallTexture :: struct {
     top,
     middle,
-    bottom: WallTexture
+    bottom: EngineTexture
 }
 LineTexture :: struct {
-    front: WallTextures,
-    back: WallTextures,
+    front: WallTexture,
+    back: WallTexture,
 }
-WallTexture :: struct {
+EngineTexture :: struct {
     texture: string,
     offset: Vec2,
 }
@@ -27,6 +27,8 @@ Line :: struct {
 Sector :: struct {
     floor: f32,
     height: f32,
+    floor_text: EngineTexture,
+    ceil_text: EngineTexture,
 }
 
 World :: struct {
