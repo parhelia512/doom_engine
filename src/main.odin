@@ -22,7 +22,7 @@ PLAYER_HEIGHT::5
 
 GOD::false
 
-//TODO give the player a width
+//TASK(20260224-130850-786-n6-230): give the player a width
 
 make_line :: proc(
     p1, p2: int,
