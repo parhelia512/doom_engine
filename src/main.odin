@@ -22,7 +22,7 @@ PLAYER_HEIGHT::5
 
 PLAYER_RADIUS::1
 
-GOD::false
+GOD:=false
 
 //TASK(20260224-130850-786-n6-230): give the player a width
 
@@ -192,6 +192,9 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
     if IsKeyDown(KeyboardKey.RIGHT) {
         rot += 1 
     }
+    if IsKeyPressed(KeyboardKey.F3) {
+        GOD=!GOD
+    }
     if IsKeyDown(KeyboardKey.LEFT_SHIFT) {
         player.height = PLAYER_HEIGHT / 1.5
     } else {
@@ -249,6 +252,10 @@ get_shift :: proc(player, mov: engine.Vec2) -> engine.Vec2 {
 
 //TASK(20260224-135345-814-n6-106): fix collision issues
 move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
+    if GOD {
+        player.pos += move
+        return
+    }
     using engine 
     using rl
     move:=move
@@ -267,7 +274,7 @@ move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.V
     shiftx:=get_shift(player.pos.xz, newx)
     collidex, infox := check_collide(player.pos.xz+shiftx, newx+shiftx, world)
     infox.point-=shiftx
-    if collidex&&!GOD {
+    if collidex {
         if infox.is_portal {
             if infox.floor-player.pos.y >= STEP_HEIGHT+0.1 || infox.ceil-player_eye < 1{
                 epsilon := math.sign_f32(infox.point.x-player.pos.x)*e
@@ -289,7 +296,7 @@ move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.V
     shiftz:=get_shift(player.pos.xz, newz)
     collidez, infoz := check_collide(player.pos.xz+shiftz, newz+shiftz, world)
     infoz.point-=shiftz
-    if collidez&&!GOD {
+    if collidez {
         if infoz.is_portal {
             if infoz.floor-player.pos.y >= STEP_HEIGHT +0.1 || infoz.ceil-player_eye < 1{
                 epsilon := math.sign_f32(infoz.point.y-player.pos.z)*e
