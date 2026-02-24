@@ -1,10 +1,11 @@
+//TASK(20260223-135227-270-n6-248): make a map editor
+
 package main
 
 import "core:fmt"
 import rl "vendor:raylib"
 import "engine"
 import "core:math"
-
 
 WIDTH::1700
 HEIGHT::1000
@@ -19,6 +20,9 @@ JUMP_HEIGHT :: 2.5
 
 PLAYER_HEIGHT::5
 
+GOD::false
+
+//TODO give the player a width
 
 make_line :: proc(
     p1, p2: int,
@@ -77,8 +81,8 @@ make_world :: proc(world: ^engine.World) {
     s1.ceil_text= EngineTexture{"ceil1", 0}
 
     s2:Sector
-    s2.height=10 
-    s2.floor= -1
+    s2.height=4.5
+    s2.floor= 0
     s2.floor_text = EngineTexture{"flat2", 0}
     s2.ceil_text= EngineTexture{"ceil2", 0}
 
@@ -102,7 +106,7 @@ make_world :: proc(world: ^engine.World) {
             -1,
             false,
             make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall", Vec2{0, 1}}
+                middle=EngineTexture{"wall", Vec2{0, 2}}
                 })
     ))
 
@@ -123,7 +127,7 @@ make_world :: proc(world: ^engine.World) {
             1,
             false,
             make_line_texture_b(WallTexture{
-                middle=EngineTexture{"wall", Vec2{0, 1}}
+                middle=EngineTexture{"wall", Vec2{0, 2}}
                 })
     ))
 
@@ -145,7 +149,7 @@ make_world :: proc(world: ^engine.World) {
             -1,
             false,
             make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall", Vec2{0, 1}}
+                middle=EngineTexture{"wall", Vec2{0, 2}}
                 })
     ))
 
@@ -162,7 +166,7 @@ make_world :: proc(world: ^engine.World) {
     ))
 }
 
-controls :: proc(player: ^engine.Player) {
+controls :: proc(player: ^engine.Player, world: ^engine.World) {
     using engine
     using rl
     move : Vec2
@@ -191,8 +195,9 @@ controls :: proc(player: ^engine.Player) {
     } else {
         player.height = PLAYER_HEIGHT
     }
+    wanted_y :=world.sectors[player.sector].floor
     if IsKeyDown(KeyboardKey.SPACE) {
-        if player.pos.y <= player.wanted_y {
+        if player.pos.y <= wanted_y {
             player.vel.y += JUMP_HEIGHT 
         }
     }
@@ -205,13 +210,24 @@ controls :: proc(player: ^engine.Player) {
     player.vel.z += move.y;
     player.vel.y -= GRAVITY*dt;
 
-    player.pos += player.vel*Vec3{1, GRAVITY, 1}*dt
+    move_player(player, world, player.vel*Vec3{1, GRAVITY, 1}*dt)
     player.vel.x -= player.vel.x * FRICTION * dt
     player.vel.z -= player.vel.z * FRICTION * dt
 
-    if player.pos.y < player.wanted_y {
-        player.pos.y = player.wanted_y
+    ceil_y := wanted_y+world.sectors[player.sector].height
+    player_eye := player.pos.y + player.height
+
+    if ceil_y-player_eye < 1 && !GOD {
+        player.pos.y = ceil_y-player.height-1
         player.vel.y = 0
+    }
+    if player.pos.y < wanted_y {
+        player.pos.y = wanted_y
+        player.vel.y = 0
+    }
+    player_eye = player.pos.y + player.height
+    if ceil_y-player_eye < 1 && !GOD {
+        player.height = PLAYER_HEIGHT / 1.5
     }
 
     if mag(player.vel) > MAX_VEL {
@@ -222,8 +238,67 @@ controls :: proc(player: ^engine.Player) {
     //TASK(20260220-082010-127-n6-265): handle gravity
 }
 
+STEP_HEIGHT :: 1.5
+
+move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
+    using engine 
+    using rl
+    move:=move
+    if math.abs(move.z) < 1e-6 {
+        move.z = 0
+    }
+    if math.abs(move.x) < 1e-6 {
+        move.x = 0
+    }
+    player.pos.y += move.y
+
+    e:f32=0.005
+    player_eye:=player.pos.y+player.height
+
+    newx := Vec2{player.pos.x + move.x, player.pos.z}
+    collidex, infox := check_collide(player.pos.xz, newx, world)     
+    if collidex&&!GOD {
+        if infox.is_portal {
+            if infox.floor-player.pos.y >= STEP_HEIGHT+0.1 || infox.ceil-player_eye < 1{
+                epsilon := math.sign_f32(infox.point.x-player.pos.x)*e
+                player.pos.x = infox.point.x-epsilon
+                player.vel.x = 0
+            } else {
+                player.pos.x = newx.x
+            }
+        } else {
+            epsilon := math.sign_f32(infox.point.x-player.pos.x)*e
+            player.pos.x = infox.point.x-epsilon
+            player.vel.x = 0
+        }
+    } else {
+        player.pos.x = newx.x
+    }
+
+    newz := Vec2{player.pos.x, player.pos.z + move.z}
+    collidez, infoz := check_collide(player.pos.xz, newz, world)     
+    if collidez&&!GOD {
+        if infoz.is_portal {
+            if infoz.floor-player.pos.y >= STEP_HEIGHT +0.1 || infoz.ceil-player_eye < 1{
+                epsilon := math.sign_f32(infoz.point.y-player.pos.z)*e
+                player.pos.z = infoz.point.y-epsilon
+                player.vel.z = 0
+            }else {
+                player.pos.z = newz.y
+            }
+        } else {
+            epsilon := math.sign_f32(infoz.point.y-player.pos.z)*e
+            player.pos.z = infoz.point.y-epsilon
+            player.vel.z = 0
+        }
+    } else {
+        player.pos.z = newz.y
+    }
+}
+
+
 update :: proc(player: ^engine.Player, world: ^engine.World) {
-    controls(player) 
+    controls(player, world) 
 }
 
 get_textures :: proc() {

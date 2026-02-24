@@ -1,6 +1,7 @@
 package engine
 import rl "vendor:raylib"
 import "core:fmt"
+import "core:strings"
 import "core:math"
 
 //TASK(20260220-205008-328-n6-902): handle textures
@@ -9,9 +10,9 @@ import "core:math"
 
 RAYLEN::1000
 
-MAX_DEPTH:: 1000
+MAX_DEPTH:: 20
 
-RAYRES::3
+RAYRES:=3
 
 FOV::math.PI/2
 
@@ -28,6 +29,7 @@ Info :: struct {
     p2: Vec2,
     floor_texture: EngineTexture,
     ceil_texture: EngineTexture,
+    sector: int,
 }
 
 ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) {
@@ -42,8 +44,14 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
         isback := (p2.x - p1.x)*(ray_start.y - p1.y) -
         (p2.y - p1.y)*(ray_start.x - p1.x) < 0
         sector_idx := isback? line.sb: line.sf 
+        other_idx := isback? line.sf: line.sb
+        backside:=false
         if sector_idx == -1 {
-            continue
+            sector_idx = other_idx
+            backside=true
+            if sector_idx == -1 {
+                continue
+            }
         }
         sector:=world.sectors[sector_idx]
         collision: Vec2
@@ -52,19 +60,33 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
             d:=dist(ray_start, collision)
             if d<info.dist {
                 t:=isback?line.texture.back:line.texture.front
-                info = Info{
-                    dist=d,
-                    height=sector.height,
-                    floor=sector.floor,
-                    is_portal=line.portal,
-                    point=collision,
-                    line_text=t.middle,
-                    bottom_text=t.bottom,
-                    top_text=t.top,
-                    p1=isback?p2:p1,
-                    p2=isback?p1:p2,
-                    floor_texture=sector.floor_text,
-                    ceil_texture=sector.ceil_text,
+                if !backside {
+                    info = Info{
+                        dist=d,
+                        height=sector.height,
+                        floor=sector.floor,
+                        is_portal=line.portal,
+                        point=collision,
+                        line_text=t.middle,
+                        bottom_text=t.bottom,
+                        top_text=t.top,
+                        p1=isback?p2:p1,
+                        p2=isback?p1:p2,
+                        floor_texture=sector.floor_text,
+                        ceil_texture=sector.ceil_text,
+                        sector=sector_idx,
+                    }
+                } else {
+                    info = Info{
+                        dist=d,
+                        height=sector.height,
+                        floor=sector.floor,
+                        is_portal=true,
+                        point=collision,
+                        p1=isback?p2:p1,
+                        p2=isback?p1:p2,
+                        sector=sector_idx
+                    }
                 }
             }
         }
@@ -160,12 +182,15 @@ draw_floor :: proc(
     tex := get_texture(texture.texture)
 
     player_eye := player.pos.y + player.height
+    if player_eye < floor_y {
+        return
+    }
     s := player_eye - floor_y
     vec:=rotate(Vec2{player.pos.x, -player.pos.z}, player.rot)
     cos_r := math.cos(-player.rot)
     sin_r := math.sin(-player.rot)
 
-    for py := y_start; py < floor_end; py += RAYRES {
+    for py := y_start; py < floor_end; py += i32(RAYRES) {
         row_dist := s * projection_plane_dist / (f32(py) - screen_center_y)
 
         camera_x := 2.0 * f32(x) / f32(screen_width) - 1.0
@@ -217,16 +242,19 @@ draw_ceil :: proc(
     tex := get_texture(texture.texture)
 
     player_eye := player.pos.y + player.height
+    if player_eye > ceil_y {
+        return
+    }
     s := ceil_y - player_eye
     vec := rotate(Vec2{player.pos.x, -player.pos.z}, player.rot)
     cos_r := math.cos(-player.rot)
     sin_r := math.sin(-player.rot)
 
-    for py := y_start; py > ceil_end; py -= RAYRES {
+    for py := y_start; py > ceil_end; py -= i32(RAYRES) {
         row_dist := s * projection_plane_dist / (screen_center_y - f32(py))
 
         camera_x := 2.0 * f32(x) / f32(screen_width) - 1.0
-        camera_x2 := 2.0 * f32(x+RAYRES) / f32(screen_width) - 1.0
+        camera_x2 := 2.0 * f32(x+i32(RAYRES)) / f32(screen_width) - 1.0
 
         ceil_world_x := row_dist * camera_x
         ceil_world_x2 := row_dist * camera_x2
@@ -267,12 +295,12 @@ render_ray :: proc(world: ^World,
     ceil_end: i32,
     add_dist: f32 = 0,
 ) -> (bool, Info) {
-    if max_depth <= 0 {
-        return false, Info{} 
-    }
     using rl;
     x:= f32(i)*width
     collide, info:=ray_collide(world, ray_start, angle)
+    if max_depth <= 0 {
+        return collide, info
+    }
     if !collide {
         return collide, info
     }
@@ -305,45 +333,44 @@ render_ray :: proc(world: ^World,
             i32(owall_top),
             info.dist + epsilon + add_dist,
         )
-        if !icollide {
-            return collide, info
-        }
-        iceiling_y := iinfo.floor+iinfo.height
-        if iceiling_y < ceiling_y {
-            top := wall_top
-            bottom:= screen_center_y - ((iceiling_y - player_eye) / dist) * projection_plane_dist
-            draw_rect(
-                i32(x),
-                i32(top),
-                i32(width),
-                i32(bottom - top),
-                info.top_text,
-                dist,
-                ceiling_y-iceiling_y,
-                info.p1,
-                info.p2,
-                info.point,
-            )
-            height -= ceiling_y-iceiling_y
-            wall_top=bottom
-        }
-        if iinfo.floor > info.floor {
-            top:= screen_center_y - ((iinfo.floor - player_eye) / dist) * projection_plane_dist
-            bottom:= wall_bottom
-            draw_rect(
-                i32(x),
-                i32(top),
-                i32(width),
-                i32(bottom - top),
-                info.bottom_text,
-                dist,
-                iinfo.floor-info.floor,
-                info.p1,
-                info.p2,
-                info.point,
-            )
-            wall_bottom=top
-            height-=iinfo.floor-info.floor
+        if icollide {
+            iceiling_y := iinfo.floor+iinfo.height
+            if iceiling_y < ceiling_y {
+                top := wall_top
+                bottom:= screen_center_y - ((iceiling_y - player_eye) / dist) * projection_plane_dist
+                draw_rect(
+                    i32(x),
+                    i32(top),
+                    i32(width),
+                    i32(bottom - top),
+                    info.top_text,
+                    dist,
+                    ceiling_y-iceiling_y,
+                    info.p1,
+                    info.p2,
+                    info.point,
+                )
+                height -= ceiling_y-iceiling_y
+                wall_top=bottom
+            }
+            if iinfo.floor > info.floor {
+                top:= screen_center_y - ((iinfo.floor - player_eye) / dist) * projection_plane_dist
+                bottom:= wall_bottom
+                draw_rect(
+                    i32(x),
+                    i32(top),
+                    i32(width),
+                    i32(bottom - top),
+                    info.bottom_text,
+                    dist,
+                    iinfo.floor-info.floor,
+                    info.p1,
+                    info.p2,
+                    info.point,
+                )
+                wall_bottom=top
+                height-=iinfo.floor-info.floor
+            }
         }
     }
 
@@ -385,9 +412,27 @@ render_ray :: proc(world: ^World,
     return collide, info
 }
 
+frame:=0
+
+change :: proc(c: int) {
+    RAYRES+=c
+    frame = 10
+    RAYRES = math.clamp(RAYRES, 2, 20)
+}
+
 render_world :: proc(world: ^World, player: ^Player) {
     using rl
-    raynum:=math.floor_f32(f32(rl.GetScreenWidth())/RAYRES)
+    if frame <= 0 {
+        fps:=GetFPS()
+        if fps < 50 {
+            change(1)
+        } else if fps > 300 {
+            change(-1)
+        }
+    } else {
+        frame-=1
+    }
+    raynum:=math.floor_f32(f32(rl.GetScreenWidth())/f32(RAYRES))
     delta_angle:=FOV/(raynum-1)
     width:=f32(RAYRES)
     projection_plane_dist := f32(GetScreenWidth()/2) / math.tan_f32(FOV/2)
@@ -407,7 +452,10 @@ render_world :: proc(world: ^World, player: ^Player) {
             0,
         )
         if collide {
-            player.wanted_y = info.floor
+            player.sector = info.sector
         }
     }
+    str := strings.clone_to_cstring(fmt.tprint(RAYRES))
+    defer delete(str)
+    DrawText(str, 400, 10, 20, WHITE)
 }
