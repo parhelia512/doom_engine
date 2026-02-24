@@ -10,7 +10,7 @@ import "core:math"
 
 RAYLEN::1000
 
-MAX_DEPTH:: 20
+MAX_DEPTH :: 20
 
 RAYRES:=3
 
@@ -193,8 +193,8 @@ draw_floor :: proc(
     for py := y_start; py < floor_end; py += i32(RAYRES) {
         row_dist := s * projection_plane_dist / (f32(py) - screen_center_y)
 
-        camera_x := 2.0 * f32(x) / f32(screen_width) - 1.0
-        camera_x2 := 2.0 * f32(x+width) / f32(screen_width) - 1.0
+        camera_x := 2  * f32(x) / f32(screen_width) - 1 
+        camera_x2 := 2  * f32(x+width) / f32(screen_width) - 1 
 
         floor_world_x := row_dist * camera_x
         floor_world_x2 := row_dist * camera_x2
@@ -216,7 +216,8 @@ draw_floor :: proc(
         if v < 0 { v += i32(tex.texture.height) }
 
         dest_rect := rl.Rectangle{x=f32(x), y=f32(py), width=f32(width), height=f32(RAYRES)}
-        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u + tex.texture.width)%tex.texture.width), height=1.0}
+        // src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u + tex.texture.width)%tex.texture.width), height=1 }
+        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=1, height=1}
 
         rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
     }
@@ -253,8 +254,8 @@ draw_ceil :: proc(
     for py := y_start; py > ceil_end; py -= i32(RAYRES) {
         row_dist := s * projection_plane_dist / (screen_center_y - f32(py))
 
-        camera_x := 2.0 * f32(x) / f32(screen_width) - 1.0
-        camera_x2 := 2.0 * f32(x+i32(RAYRES)) / f32(screen_width) - 1.0
+        camera_x := 2  * f32(x) / f32(screen_width) - 1 
+        camera_x2 := 2  * f32(x+i32(RAYRES)) / f32(screen_width) - 1 
 
         ceil_world_x := row_dist * camera_x
         ceil_world_x2 := row_dist * camera_x2
@@ -276,7 +277,7 @@ draw_ceil :: proc(
         if v < 0 { v += i32(tex.texture.height) }
 
         dest_rect := rl.Rectangle{x=f32(x), y=f32(py), width=f32(width), height=f32(RAYRES)}
-        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u + tex.texture.width)%tex.texture.width), height=1.0}
+        src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=1, height=1 }
 
         rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
     }
@@ -299,6 +300,13 @@ render_ray :: proc(world: ^World,
     x:= f32(i)*width
     collide, info:=ray_collide(world, ray_start, angle)
     if max_depth <= 0 {
+        DrawRectangle(
+            i32(x),
+            i32(ceil_end),
+            i32(width),
+            i32(floor_end-ceil_end),
+            BLACK
+        )
         return collide, info
     }
     if !collide {
@@ -311,6 +319,7 @@ render_ray :: proc(world: ^World,
 
     wall_top := screen_center_y - ((ceiling_y - player_eye) / dist) * projection_plane_dist
     wall_bottom := screen_center_y - ((info.floor - player_eye) / dist) * projection_plane_dist
+
 
     height:=info.height
 

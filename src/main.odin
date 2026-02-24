@@ -20,6 +20,8 @@ JUMP_HEIGHT :: 2.5
 
 PLAYER_HEIGHT::5
 
+PLAYER_RADIUS::1
+
 GOD::false
 
 //TASK(20260224-130850-786-n6-230): give the player a width
@@ -240,6 +242,12 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
 
 STEP_HEIGHT :: 1.5
 
+get_shift :: proc(player, mov: engine.Vec2) -> engine.Vec2 {
+    using engine
+    return norm(mov-player)*PLAYER_RADIUS
+}
+
+//TASK(20260224-135345-814-n6-106): fix collision issues
 move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
     using engine 
     using rl
@@ -256,7 +264,9 @@ move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.V
     player_eye:=player.pos.y+player.height
 
     newx := Vec2{player.pos.x + move.x, player.pos.z}
-    collidex, infox := check_collide(player.pos.xz, newx, world)     
+    shiftx:=get_shift(player.pos.xz, newx)
+    collidex, infox := check_collide(player.pos.xz+shiftx, newx+shiftx, world)
+    infox.point-=shiftx
     if collidex&&!GOD {
         if infox.is_portal {
             if infox.floor-player.pos.y >= STEP_HEIGHT+0.1 || infox.ceil-player_eye < 1{
@@ -276,7 +286,9 @@ move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.V
     }
 
     newz := Vec2{player.pos.x, player.pos.z + move.z}
-    collidez, infoz := check_collide(player.pos.xz, newz, world)     
+    shiftz:=get_shift(player.pos.xz, newz)
+    collidez, infoz := check_collide(player.pos.xz+shiftz, newz+shiftz, world)
+    infoz.point-=shiftz
     if collidez&&!GOD {
         if infoz.is_portal {
             if infoz.floor-player.pos.y >= STEP_HEIGHT +0.1 || infoz.ceil-player_eye < 1{
@@ -326,7 +338,9 @@ main :: proc() {
     for !WindowShouldClose() {
         update(&player, &world)
         BeginDrawing()
-        ClearBackground(BLACK)
+        if GOD {
+            ClearBackground(BLACK)
+        }
         render_world(&world, &player)
         DrawFPS(10, 10)
         EndDrawing()
