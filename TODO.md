@@ -9,3 +9,5 @@
 - [ ] make a map editor
 - [X] give the player a width
 - [ ] fix collision issues
+- [ ] make width effect detection here
+    When you're half way in a wall, you don't crouch, even when you should, causing a glitch

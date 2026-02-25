@@ -222,6 +222,7 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
     ceil_y := wanted_y+world.sectors[player.sector].height
     player_eye := player.pos.y + player.height
 
+    //TASK(20260225-072207-926-n6-028): make width effect detection here
     if ceil_y-player_eye < 1 && !GOD {
         player.pos.y = ceil_y-player.height-1
         player.vel.y = 0
