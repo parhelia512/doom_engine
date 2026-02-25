@@ -4,6 +4,9 @@ package main
 import "core:math"
 import "core:log"
 import "core:strings"
+import "core:c"
+import "core:c/libc"
+import "base:runtime"
 
 import rl "vendor:raylib"
 import mu "vendor:microui"
@@ -110,7 +113,7 @@ make_world :: proc(world: ^engine.World) {
             -1,
             false,
             make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall", 0}
+                middle=EngineTexture{"wall1", 0}
                 })
     ))
     append(&world.lines, make_line(
@@ -120,7 +123,7 @@ make_world :: proc(world: ^engine.World) {
             -1,
             false,
             make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall", Vec2{0, 2}}
+                middle=EngineTexture{"wall1", Vec2{0, 2}}
                 })
     ))
 
@@ -131,7 +134,7 @@ make_world :: proc(world: ^engine.World) {
             0,
             false,
             make_line_texture_b(WallTexture{
-                middle=EngineTexture{"wall", 0}
+                middle=EngineTexture{"wall1", 0}
                 })
     ))
     append(&world.lines, make_line(
@@ -141,7 +144,7 @@ make_world :: proc(world: ^engine.World) {
             1,
             false,
             make_line_texture_b(WallTexture{
-                middle=EngineTexture{"wall", Vec2{0, 2}}
+                middle=EngineTexture{"wall1", Vec2{0, 2}}
                 })
     ))
 
@@ -153,7 +156,7 @@ make_world :: proc(world: ^engine.World) {
             0,
             false,
             make_line_texture_b(WallTexture{
-                middle=EngineTexture{"wall", 0}
+                middle=EngineTexture{"wall1", 0}
                 })
     ))
     append(&world.lines, make_line(
@@ -163,7 +166,7 @@ make_world :: proc(world: ^engine.World) {
             -1,
             false,
             make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall", Vec2{0, 2}}
+                middle=EngineTexture{"wall2", Vec2{0, 2}}
                 })
     ))
 
@@ -174,8 +177,8 @@ make_world :: proc(world: ^engine.World) {
             1,
             true,
             make_line_texture_a(WallTexture{
-                top=EngineTexture{"wall", 0},
-                bottom=EngineTexture{"wall", 0},
+                top=EngineTexture{"wall1", 0},
+                bottom=EngineTexture{"wall1", 0},
             })
     ))
 }
@@ -349,7 +352,8 @@ update :: proc(player: ^engine.Player, world: ^engine.World) {
 get_textures :: proc() {
     using engine
     gen_default(10, 10)
-    set_texture("wall", "./assets/textures/startan2.png", 10, 10)
+    set_texture("wall1", "./assets/textures/startan2.png", 10, 10)
+    set_texture("wall2", "./assets/textures/startan3.png", 10, 10)
     set_texture("flat1", "./assets/flats/flat10.png", 10, 10)
     set_texture("flat2", "./assets/flats/flat1.png", 10, 10)
     set_texture("ceil1", "./assets/flats/flat5.png", 10, 10)
@@ -382,8 +386,33 @@ create_commands :: proc() {
     }, 1, 1)
 }
 
+rl_to_log :: proc"contextless"(level: rl.TraceLogLevel) -> (bool, log.Level) {
+    #partial switch level {
+    case rl.TraceLogLevel.INFO: return true, log.Level.Info
+    case rl.TraceLogLevel.DEBUG: return true, log.Level.Debug
+    case rl.TraceLogLevel.WARNING: return true, log.Level.Warning
+    case rl.TraceLogLevel.ERROR: return true, log.Level.Error
+    case rl.TraceLogLevel.FATAL: return true, log.Level.Fatal
+    }
+    return false, nil
+}
+
+logger:log.Logger
+
 main :: proc() {
-    context.logger = windows.logger(opts={.Level, .Terminal_Color})
+    logger = windows.logger(opts={.Level, .Terminal_Color})
+    context.logger = logger
+    rl.SetTraceLogCallback(proc"c"(level: rl.TraceLogLevel, text: cstring, args: ^c.va_list) {
+        exist, level := rl_to_log(level)
+        if !exist {
+            return
+        }
+        context=runtime.default_context()
+        context.logger = logger 
+        buf: [1024]u8
+        libc.vsprintf(&buf[0], text, args)
+        log.log(level, string(buf[:]))
+    })
     rlmu.setup_global()
     using rl
     using engine

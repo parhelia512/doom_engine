@@ -9,6 +9,7 @@ import "core:time"
 import "core:path/filepath"
 import "core:terminal/ansi"
 import "core:terminal"
+import "core:c"
 
 //TASK(20260225-132738-406-n6-982): make this use a ring buffer
 @private
@@ -64,15 +65,15 @@ logger :: proc(lowest_level:=log.Level.Debug, opts:=log.Default_Console_Logger_O
                 console_color.r = 0
             case .Info:
                 color=ansi.FG_BLUE
-                console_color.r = 0
-                console_color.g = 0
+                console_color.r = 45
+                console_color.g = 157
             case .Warning:
                 color=ansi.FG_YELLOW
                 console_color.b = 0
             case .Error, .Fatal:
                 color=ansi.FG_RED
-                console_color.b = 0
-                console_color.g = 0
+                console_color.b = 104
+                console_color.g = 104
             }
             fmt.print(ansi.CSI, color, ansi.SGR, sep="")
         }
@@ -236,10 +237,12 @@ CommandProc :: proc(..string)
             if submitted == true {
                 command:= strings.trim_space(string(text[:text_len]))
                 text_len = 0
-                log_raw(">", command)
                 strs:=strings.fields(command)
                 defer delete(strs)
-                run_command(strs[0], args=strs[1:])
+                if len(strs) != 0 {
+                    log_raw(">", command)
+                    run_command(strs[0], args=strs[1:])
+                }
             }
             has_focus^ =ctx.hover_root!=nil||has_focus^
         } else {
