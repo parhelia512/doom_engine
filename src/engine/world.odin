@@ -1,7 +1,6 @@
 package engine;
 
 import rl "vendor:raylib"
-import "core:fmt"
 import "core:math"
 
 WallTexture :: struct {

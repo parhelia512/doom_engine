@@ -1,11 +1,16 @@
+package main
 //TASK(20260223-135227-270-n6-248): make a map editor
 
-package main
-
-import "core:fmt"
-import rl "vendor:raylib"
-import "engine"
 import "core:math"
+import "core:log"
+import "core:strings"
+
+import rl "vendor:raylib"
+import mu "vendor:microui"
+import "rlmu"
+
+import "windows"
+import "engine"
 
 WIDTH::1700
 HEIGHT::1000
@@ -19,10 +24,17 @@ GRAVITY :: 6
 JUMP_HEIGHT :: 2.5 
 
 PLAYER_HEIGHT::5
+PLAYER_CROUCH :: PLAYER_HEIGHT / 1.5
 
 PLAYER_RADIUS::1
 
+
 GOD:=false
+DEBUG:=false
+SHOWFPS:=false
+
+
+WINDOW_FOCUS:=false
 
 //TASK(20260224-130850-786-n6-230): give the player a width
 
@@ -192,14 +204,27 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
     if IsKeyDown(KeyboardKey.RIGHT) {
         rot += 1 
     }
+
     if IsKeyPressed(KeyboardKey.F3) {
         GOD=!GOD
     }
+    if IsKeyPressed(KeyboardKey.F4) {
+        DEBUG=!DEBUG
+    }
+    if(IsKeyPressed(KeyboardKey.F2)) {
+        SHOWFPS=!SHOWFPS
+    }
+    if WINDOW_FOCUS {
+        WINDOW_FOCUS=false
+        return
+    }
+
     if IsKeyDown(KeyboardKey.LEFT_SHIFT) {
-        player.height = PLAYER_HEIGHT / 1.5
+        player.height = PLAYER_CROUCH
     } else {
         player.height = PLAYER_HEIGHT
     }
+
     wanted_y :=world.sectors[player.sector].floor
     if IsKeyDown(KeyboardKey.SPACE) {
         if player.pos.y <= wanted_y {
@@ -233,7 +258,7 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
     }
     player_eye = player.pos.y + player.height
     if ceil_y-player_eye < 1 && !GOD {
-        player.height = PLAYER_HEIGHT / 1.5
+        player.height = PLAYER_CROUCH
     }
 
     if mag(player.vel) > MAX_VEL {
@@ -331,18 +356,55 @@ get_textures :: proc() {
     set_texture("ceil2", "./assets/flats/ceil3_3.png", 10, 10)
 }
 
+draw_ui :: proc() {
+    ctx:=rlmu.begin_scope()
+    windows.draw_console(ctx, &DEBUG, &WINDOW_FOCUS);
+}
+
+create_commands :: proc() {
+    windows.add_command("toggle", proc(args: ..string) {
+        varname:=args[0]
+        switch varname {
+        case "GOD":
+            GOD = !GOD
+        case "DEBUG":
+            DEBUG=!DEBUG
+        case "SHOWFPS":
+            SHOWFPS=!SHOWFPS
+        case "-l":
+            windows.log_raw("AVAILABLE VARIABLES\nGOD\nDEBUG\nSHOWFPS")
+            return
+        case:
+            log.errorf("variable '%s' doesn't exist", varname)
+            return
+        }
+        windows.log_rawf("toggled '%s'", varname)
+    }, 1, 1)
+}
+
 main :: proc() {
+    context.logger = windows.logger(opts={.Level, .Terminal_Color})
+    rlmu.setup_global()
     using rl
     using engine
     world: World
+
+    create_commands()
+
     make_world(&world)
     player: Player
     player.pos = Vec3{-5, 0, 0}
     player.rot = math.PI/2
     player.height = PLAYER_HEIGHT
     InitWindow(WIDTH, HEIGHT, TITLE)
+    defer CloseWindow()
+    defer free_world(&world);
+
+    ctx:=rlmu.init_scope()
+
     get_textures()
     SetExitKey(KeyboardKey.KEY_NULL)
+
     for !WindowShouldClose() {
         update(&player, &world)
         BeginDrawing()
@@ -350,11 +412,13 @@ main :: proc() {
             ClearBackground(BLACK)
         }
         render_world(&world, &player)
-        DrawFPS(10, 10)
+        if SHOWFPS {
+            DrawFPS(10, 10)
+        }
+
+        draw_ui()
+
         EndDrawing()
     }
-    CloseWindow()
-
-    free_world(&world);
 }
 

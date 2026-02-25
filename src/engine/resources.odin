@@ -8,7 +8,7 @@ TextureData :: struct {
 }
 
 @private
-textures:=map[string]TextureData{}
+textures:map[string]TextureData
 
 @private
 DEFAULT_NAME::"__default"

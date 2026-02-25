@@ -1,6 +1,5 @@
 package engine
 import rl "vendor:raylib"
-import "core:fmt"
 import "core:strings"
 import "core:math"
 
@@ -464,7 +463,4 @@ render_world :: proc(world: ^World, player: ^Player) {
             player.sector = info.sector
         }
     }
-    str := strings.clone_to_cstring(fmt.tprint(RAYRES))
-    defer delete(str)
-    DrawText(str, 400, 10, 20, WHITE)
 }
