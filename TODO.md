@@ -13,4 +13,5 @@
     When you're half way in a wall, you don't crouch, even when you should, causing a glitch
 - [ ] make this use a ring buffer
 - [ ] somehow make this part faster
-- [ ] fix the bug where when the wall isn't axis aligned collisions break
+- [X] fix the bug where when the wall isn't axis aligned collisions break
+- [ ] fix accuracy in this function

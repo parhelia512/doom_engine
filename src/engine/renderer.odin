@@ -40,6 +40,7 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
     for line in world.lines {
         p1:=world.points[line.p1]
         p2:=world.points[line.p2]
+        //TASK(20260227-141911-415-n6-810): fix accuracy in this function
         isback := (p2.x - p1.x)*(ray_start.y - p1.y) -
         (p2.y - p1.y)*(ray_start.x - p1.x) <= 0
         sector_idx := isback? line.sb: line.sf 
