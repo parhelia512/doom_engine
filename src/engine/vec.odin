@@ -1,5 +1,6 @@
 package engine;
 import "core:math"
+import "core:log"
 
 Vec2 :: [2]f32 
 Vec3 :: [3]f32
@@ -81,17 +82,31 @@ dist :: proc{vec2dist, vec3dist}
 dist2 :: proc{vec2dist2, vec3dist2}
 
 rotate :: proc(v: Vec2, angle: f32) -> Vec2 {
+    if angle == 0 {
+        return v;
+    }
     x := v.x*math.cos(angle) - v.y*math.sin(angle)
     y := v.x*math.sin(angle) + v.y*math.cos(angle)
     return Vec2{x, y}
 }
 
 rotate_around :: proc(origin, v: Vec2, angle: f32) -> Vec2 {
+    if angle == 0 {
+        return v
+    }
     v:=rotate(v-origin, angle)+origin
     return v
 }
 
 dot :: proc(a, b: Vec2) -> f32 {
     return a.x * b.x + a.y * b.y
+}
+
+angle :: proc(a: Vec2) -> f32 {
+    return math.atan2(a.y, a.x)
+}
+
+angle_around :: proc(a, origin: Vec2) -> f32 {
+    return angle(a-origin)
 }
 

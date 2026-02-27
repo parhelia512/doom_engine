@@ -282,9 +282,8 @@ get_shift :: proc(player, mov: engine.Vec2) -> engine.Vec2 {
     using engine
     return norm(mov-player)*PLAYER_RADIUS
 }
-
 //TASK(20260226-082305-756-n6-666): fix the bug where when the wall isn't axis aligned collisions break
-move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
+move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
     if GOD {
         player.pos += move
         return
@@ -304,7 +303,7 @@ move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.V
 
     newx := Vec2{player.pos.x + move.x, player.pos.z}
     shiftx:=get_shift(player.pos.xz, newx)
-    collidex, infox := check_collide(player.pos.xz+shiftx, newx+shiftx, world)
+    collidex, infox := check_collide(player.pos.xz, newx+shiftx, world)
     infox.point-=shiftx
     if collidex {
         if infox.is_portal {
@@ -326,7 +325,7 @@ move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.V
 
     newz := Vec2{player.pos.x, player.pos.z + move.z}
     shiftz:=get_shift(player.pos.xz, newz)
-    collidez, infoz := check_collide(player.pos.xz+shiftz, newz+shiftz, world)
+    collidez, infoz := check_collide(player.pos.xz, newz+shiftz, world)
     infoz.point-=shiftz
     if collidez {
         if infoz.is_portal {
