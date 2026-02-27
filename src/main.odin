@@ -35,6 +35,7 @@ PLAYER_RADIUS::1
 GOD:=false
 DEBUG:=false
 SHOWFPS:=false
+EDITOR:=false
 
 
 WINDOW_FOCUS:=false
@@ -188,48 +189,51 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
     using rl
     move : Vec2
     rot : f32
-    if IsKeyDown(KeyboardKey.W) {
+    if IsKeyDown(.W) {
         move.y -= 1 
     }
-    if IsKeyDown(KeyboardKey.S) {
+    if IsKeyDown(.S) {
         move.y += 1 
     }
-    if IsKeyDown(KeyboardKey.A) {
+    if IsKeyDown(.A) {
         move.x -= 1 
     }
-    if IsKeyDown(KeyboardKey.D) {
+    if IsKeyDown(.D) {
         move.x += 1 
     }
 
-    if IsKeyDown(KeyboardKey.LEFT) {
+    if IsKeyDown(.LEFT) {
         rot -= 1 
     }
-    if IsKeyDown(KeyboardKey.RIGHT) {
+    if IsKeyDown(.RIGHT) {
         rot += 1 
     }
 
-    if IsKeyPressed(KeyboardKey.F3) {
+    if IsKeyPressed(.F3) {
         GOD=!GOD
     }
-    if IsKeyPressed(KeyboardKey.F4) {
+    if IsKeyPressed(.F4) {
         DEBUG=!DEBUG
     }
-    if(IsKeyPressed(KeyboardKey.F2)) {
+    if(IsKeyPressed(.F2)) {
         SHOWFPS=!SHOWFPS
+    }
+    if(IsKeyPressed(.F5)) {
+        EDITOR=!EDITOR
     }
     if WINDOW_FOCUS {
         WINDOW_FOCUS=false
         return
     }
 
-    if IsKeyDown(KeyboardKey.LEFT_SHIFT) {
+    if IsKeyDown(.LEFT_SHIFT) {
         player.height = PLAYER_CROUCH
     } else {
         player.height = PLAYER_HEIGHT
     }
 
     wanted_y :=world.sectors[player.sector].floor
-    if IsKeyDown(KeyboardKey.SPACE) {
+    if IsKeyDown(.SPACE) {
         if player.pos.y <= wanted_y {
             player.vel.y += JUMP_HEIGHT 
         }
@@ -279,14 +283,13 @@ get_shift :: proc(player, mov: engine.Vec2) -> engine.Vec2 {
     return norm(mov-player)*PLAYER_RADIUS
 }
 
-//TASK(20260224-135345-814-n6-106): fix collision issues
+//TASK(20260226-082305-756-n6-666): fix the bug where when the wall isn't axis aligned collisions break
 move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
     if GOD {
         player.pos += move
         return
     }
-    using engine 
-    using rl
+    player.pos.y += move.y
     move:=move
     if math.abs(move.z) < 1e-6 {
         move.z = 0
@@ -294,8 +297,8 @@ move_player :: proc(player: ^engine.Player, world: ^engine.World, move: engine.V
     if math.abs(move.x) < 1e-6 {
         move.x = 0
     }
-    player.pos.y += move.y
-
+    using engine 
+    using rl
     e:f32=0.005
     player_eye:=player.pos.y+player.height
 
@@ -360,9 +363,10 @@ get_textures :: proc() {
     set_texture("ceil2", "./assets/flats/ceil3_3.png", 10, 10)
 }
 
-draw_ui :: proc() {
+draw_ui :: proc(world: ^engine.World) {
     ctx:=rlmu.begin_scope()
     windows.draw_console(ctx, &DEBUG, &WINDOW_FOCUS);
+    draw_editor(ctx, &EDITOR, &WINDOW_FOCUS, world)
 }
 
 create_commands :: proc() {
@@ -375,11 +379,13 @@ create_commands :: proc() {
             DEBUG=!DEBUG
         case "SHOWFPS":
             SHOWFPS=!SHOWFPS
+        case "EDITOR":
+            EDITOR=!EDITOR
         case "-l":
-            windows.log_raw("AVAILABLE VARIABLES\nGOD\nDEBUG\nSHOWFPS")
+            windows.log_raw("AVAILABLE VARIABLES\n- GOD\n- DEBUG\n- SHOWFPS\n- EDITOR")
             return
         case:
-            log.errorf("variable '%s' doesn't exist", varname)
+            log.errorf("variable '%s' doesn't exist, run 'toggle -l' to get a list of all variables", varname)
             return
         }
         windows.log_rawf("toggled '%s'", varname)
@@ -413,7 +419,7 @@ main :: proc() {
         libc.vsprintf(&buf[0], text, args)
         log.log(level, string(buf[:]))
     })
-    rlmu.setup_global()
+    rl.SetTraceLogLevel(rl.TraceLogLevel.WARNING)
     using rl
     using engine
     world: World
@@ -432,20 +438,18 @@ main :: proc() {
     ctx:=rlmu.init_scope()
 
     get_textures()
-    SetExitKey(KeyboardKey.KEY_NULL)
+    SetExitKey(.KEY_NULL)
 
     for !WindowShouldClose() {
         update(&player, &world)
         BeginDrawing()
-        if GOD {
-            ClearBackground(BLACK)
-        }
+        ClearBackground(BLACK)
         render_world(&world, &player)
         if SHOWFPS {
             DrawFPS(10, 10)
         }
 
-        draw_ui()
+        draw_ui(&world)
 
         EndDrawing()
     }

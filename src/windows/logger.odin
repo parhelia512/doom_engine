@@ -205,13 +205,14 @@ CommandProc :: proc(..string)
         if !render^ {
             return
         }
-        window_width:=rl.GetScreenWidth()
-        window_height:=rl.GetScreenHeight()
+        window_width:=rl.GetRenderWidth()
+        window_height:=rl.GetRenderHeight()
         if mu.window(ctx, "Console", mu.Rect{window_width/2-700/2, window_height/2-500/2, 700, 500}) {
             mu.layout_row(ctx, { -1 }, -25)
             mu.begin_panel(ctx, "Log Output")
             panel := mu.get_current_container(ctx)
             mu.layout_row(ctx, { -1 }, 0)
+            //TASK(20260226-073920-207-n6-604): somehow make this part faster
             for text in strs {
                 old :=ctx.style.colors[mu.Color_Type.TEXT]
                 ctx.style.colors[mu.Color_Type.TEXT] = text.color

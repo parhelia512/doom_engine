@@ -3,6 +3,8 @@ package rlmu
 import "core:fmt"
 import "core:unicode/utf8"
 import "core:strings"
+import "core:mem"
+import "base:runtime"
 import mu "vendor:microui"
 import rl "vendor:raylib"
 
@@ -13,11 +15,12 @@ RLMU_State :: struct {
     ctx     : mu.Context,
 }
 
-global_state :^RLMU_State 
+global_state:=new_no_context(RLMU_State)
 
-//new in global scope is no longer valid, so this must be called
-setup_global :: proc() {
-    global_state = new(RLMU_State)
+@private
+new_no_context :: proc"contextless"($T: typeid) -> ^T {
+    context=runtime.default_context()
+    return new(T)
 }
 
 init :: proc(state := global_state) {
@@ -78,6 +81,23 @@ begin :: proc(state : ^RLMU_State = global_state) -> ^mu.Context {
     return &state.ctx
 }
 
+Command_Image :: struct {
+	using command: mu.Command,
+	rect:    mu.Rect,
+	color:   mu.Color, //ignored
+    text: ^rl.Texture,
+}
+
+draw_texture :: proc(ctx: ^mu.Context, texture: ^rl.Texture) -> mu.Rect {
+    rect := mu.layout_next(ctx)
+    rect.w = texture.width
+    rect.h = texture.height
+    command:=cast(^Command_Image)mu.push_command(ctx, mu.Command_Rect, size_of(Command_Image)-size_of(mu.Command_Rect))
+    command.rect = rect
+    command.text = texture
+    return rect
+}
+
 end :: proc(state := global_state) {
     // Tell mui that we're done drawing ui
     mu.end(&state.ctx)
@@ -109,7 +129,20 @@ end :: proc(state := global_state) {
                 }
             // Draw a rectangle
             case ^mu.Command_Rect:
-                rl.DrawRectangle(cmd.rect.x, cmd.rect.y, cmd.rect.w, cmd.rect.h, transmute(rl.Color)cmd.color)
+                if cmd.size == size_of(Command_Image) {
+                    n:=cast(^Command_Image)cmd
+                    rl.DrawTexturePro(n.text^, rl.Rectangle{
+                        0, 0, f32(n.text.width), -f32(n.text.height)
+                    }, rl.Rectangle {
+                        f32(n.rect.x),
+                        f32(n.rect.y),
+                        f32(n.rect.w),
+                        f32(n.rect.h),
+                    }, 0, 0, rl.WHITE)
+                } else {
+                    rl.DrawRectangle(cmd.rect.x, cmd.rect.y, cmd.rect.w, cmd.rect.h, transmute(rl.Color)cmd.color)
+                }
+
             // Draw an icon
             case ^mu.Command_Icon:
                 // cmd.id stores the index into the default_atlas array of rects which we can use to get the icons atlas rect

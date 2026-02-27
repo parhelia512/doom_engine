@@ -47,9 +47,38 @@ vec3dist :: proc(a, b: Vec3) -> f32{
     return math.sqrt_f32(x*x+y*y+z*z)
 }
 
+
+@private
+vec2mag2 :: proc(v: Vec2) -> f32 {
+    return v.x*v.x + v.y*v.y
+}
+
+@private
+vec2dist2 :: proc(a, b: Vec2) -> f32{
+    x :=(a.x-b.x)
+    y :=(a.y-b.y)
+    return x*x+y*y
+}
+
+@private
+vec3mag2 :: proc(v: Vec3) -> f32 {
+    return v.x*v.x + v.y*v.y + v.z*v.z
+}
+
+
+@private
+vec3dist2 :: proc(a, b: Vec3) -> f32{
+    x :=(a.x-b.x)
+    y :=(a.y-b.y)
+    z :=(a.z-b.z)
+    return x*x+y*y+z*z
+}
+
 mag :: proc{vec2mag, vec3mag}
+mag2 :: proc{vec2mag2, vec3mag2}
 norm :: proc{vec2norm, vec3norm}
 dist :: proc{vec2dist, vec3dist}
+dist2 :: proc{vec2dist2, vec3dist2}
 
 rotate :: proc(v: Vec2, angle: f32) -> Vec2 {
     x := v.x*math.cos(angle) - v.y*math.sin(angle)

@@ -8,7 +8,9 @@
     because of the speed up from the ceiling and floor rendering fix, some of the textures are broken
 - [ ] make a map editor
 - [X] give the player a width
-- [ ] fix collision issues
+- [X] fix collision issues
 - [ ] make width effect detection here
     When you're half way in a wall, you don't crouch, even when you should, causing a glitch
 - [ ] make this use a ring buffer
+- [ ] somehow make this part faster
+- [ ] fix the bug where when the wall isn't axis aligned collisions break

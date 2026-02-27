@@ -68,7 +68,7 @@ check_collide :: proc(ray_start, ray_end: Vec2, world: ^World) -> (bool, Collisi
         p1:=world.points[line.p1]
         p2:=world.points[line.p2]
         isback := (p2.x - p1.x)*(ray_start.y - p1.y) -
-        (p2.y - p1.y)*(ray_start.x - p1.x) < 0
+        (p2.y - p1.y)*(ray_start.x - p1.x) <= 0
         sector_idx:=isback? line.sb: line.sf
         if sector_idx == -1 {
             continue
@@ -76,7 +76,7 @@ check_collide :: proc(ray_start, ray_end: Vec2, world: ^World) -> (bool, Collisi
         collision: Vec2
         collide:=CheckCollisionLines(p1, p2, ray_start, ray_end, &collision) 
         if collide {
-            d:=dist(ray_start, collision)
+            d:=dist2(ray_start, collision)
             if d<dist_ {
                 dist_=d
                 collide_ = true

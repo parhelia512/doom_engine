@@ -41,7 +41,7 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
         p1:=world.points[line.p1]
         p2:=world.points[line.p2]
         isback := (p2.x - p1.x)*(ray_start.y - p1.y) -
-        (p2.y - p1.y)*(ray_start.x - p1.x) < 0
+        (p2.y - p1.y)*(ray_start.x - p1.x) <= 0
         sector_idx := isback? line.sb: line.sf 
         other_idx := isback? line.sf: line.sb
         backside:=false
@@ -113,18 +113,18 @@ draw_rect :: proc(
 
     wall_vec := p2 - p1
     wall_len_sq := dot(wall_vec, wall_vec)
+    wall_len := dist(p1, p2)
 
     hit_vec := hit_point - p1
 
+
     u := dot(hit_vec, wall_vec) / wall_len_sq
-
-    u += wall_texture.offset.x / tex_data.width
-
+    u *= wall_len / tex_data.width
+    u += wall_texture.offset.x / f32(tex.width)
     u = u - math.floor(u)
-
     tex_x := i32(u * f32(tex.width))
 
-    v := wall_texture.offset.y / tex_data.height
+    v := wall_texture.offset.y / f32(tex.height)
     v = v - math.floor(v)
     tex_y := v * f32(tex.height)
     scale := wall_height / tex_data.height
@@ -177,7 +177,7 @@ draw_floor :: proc(
     }
     using rl
 
-    screen_width := GetScreenWidth()
+    screen_width := GetRenderWidth()
     tex := get_texture(texture.texture)
 
     player_eye := player.pos.y + player.height
@@ -238,7 +238,7 @@ draw_ceil :: proc(
     }
     using rl
 
-    screen_width := GetScreenWidth()
+    screen_width := GetRenderWidth()
     tex := get_texture(texture.texture)
 
     player_eye := player.pos.y + player.height
@@ -326,7 +326,7 @@ render_ray :: proc(world: ^World,
     owall_top :=wall_top
 
     if info.is_portal {
-        epsilon:f32=0.0001
+        epsilon:f32=0.00001
         icollide, iinfo := render_ray(
             world, 
             player, 
@@ -391,7 +391,7 @@ render_ray :: proc(world: ^World,
         screen_center_y,
         projection_plane_dist,
         info.floor,
-        math.min(floor_end, GetScreenHeight()),
+        math.min(floor_end, GetRenderHeight()),
     )
     draw_ceil(
         i32(x),
@@ -440,11 +440,11 @@ render_world :: proc(world: ^World, player: ^Player) {
     } else {
         frame-=1
     }
-    raynum:=math.floor_f32(f32(rl.GetScreenWidth())/f32(RAYRES))
+    raynum:=math.floor_f32(f32(rl.GetRenderWidth())/f32(RAYRES))
     delta_angle:=FOV/(raynum-1)
     width:=f32(RAYRES)
-    projection_plane_dist := f32(GetScreenWidth()/2) / math.tan_f32(FOV/2)
-    screen_center_y := f32(GetScreenHeight())/2
+    projection_plane_dist := f32(GetRenderWidth()/2) / math.tan_f32(FOV/2)
+    screen_center_y := f32(GetRenderHeight())/2
     for i := 0; f32(i) < raynum; i+=1 {
         angle := player.rot - FOV/2 + f32(i)*delta_angle
         collide, info := render_ray(world,
@@ -456,7 +456,7 @@ render_world :: proc(world: ^World, player: ^Player) {
             projection_plane_dist,
             player.pos.xz,
             MAX_DEPTH,
-            GetScreenHeight(),
+            GetRenderHeight(),
             0,
         )
         if collide {

@@ -1,4 +1,4 @@
 build:
     odin build src -out:build/main
 run arg="":
-    odin run src {{arg}}
+    odin run src {{arg}} -out:build/main
