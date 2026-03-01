@@ -21,6 +21,7 @@ editor_controls::proc(width, height: i32) {
     }
 }
 
+//TASK(20260301-001613-540-n6-328): add sector mode
 MODE::enum {
     Point,
     Line,
