@@ -282,7 +282,7 @@ get_shift :: proc(player, mov: engine.Vec2) -> engine.Vec2 {
     using engine
     return norm(mov-player)*PLAYER_RADIUS
 }
-//TASK(20260226-082305-756-n6-666): fix the bug where when the wall isn't axis aligned collisions break
+//TASK(20260228-232552-080-n6-360): make collision detection less janky
 move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
     if GOD {
         player.pos += move

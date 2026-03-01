@@ -39,12 +39,90 @@ untranslate :: proc(v: engine.Vec2, width, height: i32) -> engine.Vec2 {
     })/5
 }
 
-selectp:^engine.Vec2 = nil
+
+hoverp: ^engine.Vec2 
+
+selectp: ^engine.Vec2 
+
+dragp: ^engine.Vec2 
 offsetp: engine.Vec2
 
 
+HOVER_COLOR :: rl.BLUE
+SELECTED_COLOR :: rl.RED
+
+handle_collide_point::proc(p1, p2: engine.Vec2, cp1, cp2, cline: ^rl.Color, op1, op2: ^engine.Vec2) {
+    using rl
+    if hoverp == nil {
+        if CheckCollisionCircles(p1, 2, GetMousePosition(), 2) {
+            cp1^ = HOVER_COLOR
+            hoverp = op1 
+            if IsMouseButtonPressed(.RIGHT) {
+                selectp = op1
+            }
+            if IsMouseButtonDown(.LEFT) {
+                selectp = op1
+                dragp = op1
+                offsetp = GetMousePosition() - p1
+            }
+        } else if CheckCollisionCircles(p2, 2, GetMousePosition(), 2) {
+            cp2^ = HOVER_COLOR
+            hoverp = op2 
+            if IsMouseButtonPressed(.RIGHT) {
+                selectp = op2
+            }
+            if IsMouseButtonDown(.LEFT) {
+                selectp = op2
+                dragp = op2
+                offsetp = GetMousePosition() - p2
+            }
+        }
+    } else {
+        if hoverp == op1 {
+            cp1^ = HOVER_COLOR
+        } else if hoverp == op2 {
+            cp2^ = HOVER_COLOR
+        }
+    }
+    if selectp == op1 {
+        cp1^ = SELECTED_COLOR
+    } else if selectp == op2 {
+        cp2^ = SELECTED_COLOR
+    }
+}
+
+hoverl := false
+
+selectl: [2]^engine.Vec2 
+
+dragl: [2]^engine.Vec2 
+offsetl: [2]engine.Vec2
+
+handle_collide_line::proc(p1, p2: engine.Vec2, cp1, cp2, cline: ^rl.Color, op1, op2: ^engine.Vec2) {
+    using rl
+    if !hoverl && CheckCollisionCircleLine(GetMousePosition(), 2, p1, p2) {
+        hoverl = true
+        cline^ = HOVER_COLOR
+
+        if IsMouseButtonPressed(.RIGHT) {
+            selectl = {op1, op2}
+        }
+        if IsMouseButtonDown(.LEFT) {
+            selectl = {op1, op2}
+            dragl = {op1, op2}
+            offsetl = {GetMousePosition() - p1, GetMousePosition() - p2}
+        }
+    }
+
+    if selectl[0] == op1 && selectl[1] == op2 {
+        cline^ = SELECTED_COLOR
+    } 
+}
+
 draw_editor_internals::proc(world: ^engine.World, width, height: i32) {
     using rl
+    hoverp = nil
+    hoverl = false
     editor_controls(width, height)
     ClearBackground(BLACK)
     for line in world.lines {
@@ -52,49 +130,46 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32) {
         op2:=&world.points[line.p2]
         p1:=translate(op1^, width, height)
         p2:=translate(op2^, width, height)
-        p1c:=WHITE
-        p2c:=WHITE
-        linec:=WHITE
-        if mode == .Point{
-            if selectp == nil {
-                if CheckCollisionCircles(GetMousePosition(), 2, p1, 2) {
-                    p1c=BLUE
-                    if IsMouseButtonDown(.LEFT) {
-                        selectp = op1 
-                        offsetp=GetMousePosition()-p1
-                    }
-                } else if CheckCollisionCircles(GetMousePosition(), 2, p2, 2) {
-                    p2c=BLUE
-                    if IsMouseButtonDown(.LEFT) {
-                        selectp = op2 
-                        offsetp=GetMousePosition()-p2
-                    }
-                }
-            } else {
-                if selectp == op1 {
-                    p1c=BLUE
-                } else if selectp==op2 {
-                    p2c=BLUE
-                }
-            } 
-        } else if mode == .Line {
-            if CheckCollisionCircleLine(GetMousePosition(), 2, p1, p2) {
-                linec=BLUE
-            }
-        }
-        DrawCircleV(p1, 2, p1c)
-        DrawCircleV(p2, 2, p2c)
-        DrawLineV(p1, p2, linec)
-    }
-    if mode == .Point {
-        if selectp!=nil{
-            if !IsMouseButtonDown(.LEFT) {
-                selectp = nil
-            } else {
-                selectp^ = untranslate(GetMousePosition() - offsetp, width, height)
-            }
-        }
 
+        cp1 := WHITE
+        cp2 := WHITE
+        cline := WHITE
+        switch mode {
+        case .Point:
+            selectl = {nil, nil}
+            dragl = {nil, nil}
+            handle_collide_point(p1, p2, &cp1, &cp2, &cline, op1, op2)
+        case .Line:
+            dragp = nil
+            selectp = nil
+            handle_collide_line(p1, p2, &cp1, &cp2, &cline, op1, op2)
+        }
+        DrawCircleV(p1, 2, cp1)
+        DrawCircleV(p2, 2, cp2)
+        DrawLineV(p1, p2, cline)
+    }
+    switch mode {
+    case .Point:
+        if IsMouseButtonUp(.LEFT) {
+            dragp = nil
+        }
+        if dragp != nil {
+            dragp^ = untranslate(GetMousePosition()-offsetp, width, height)
+        }
+        if IsMouseButtonPressed(.RIGHT) && hoverp == nil {
+            selectp = nil
+        }
+    case .Line:
+        if IsMouseButtonUp(.LEFT) {
+            dragl = {nil, nil}
+        }
+        if dragl[0] != nil && dragl[1] != nil {
+            dragl[0]^ = untranslate(GetMousePosition()-offsetl[0], width, height)
+            dragl[1]^ = untranslate(GetMousePosition()-offsetl[1], width, height)
+        }
+        if IsMouseButtonPressed(.RIGHT) && !hoverl {
+            selectl = {nil, nil} 
+        }
     }
 }
 
