@@ -6,7 +6,7 @@
 - [ ] fix janky ceil and floor calculations
 - [X] fix the broken texture
     because of the speed up from the ceiling and floor rendering fix, some of the textures are broken
-- [ ] make a map editor
+- [X] make a map editor
 - [X] give the player a width
 - [X] fix collision issues
 - [ ] make width effect detection here
