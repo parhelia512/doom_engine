@@ -366,11 +366,11 @@ draw_line_maker_line :: proc(world: ^engine.World, width, height: i32) {
         }
         return
     }
-    DrawLineV(line_maker_line.(engine.Vec2), GetMousePosition(), WHITE)
+    DrawLineV(line_maker_line.?, GetMousePosition(), WHITE)
     if IsMouseButtonPressed(.LEFT) {
         line_maker_type = .NONE
         p1 := len(world.points)
-        append(&world.points, untranslate(line_maker_line.(engine.Vec2), width, height))
+        append(&world.points, untranslate(line_maker_line.?, width, height))
         p2 := len(world.points)
         append(&world.points, untranslate(GetMousePosition(), width, height))
         append(&world.lines, engine.Line{
