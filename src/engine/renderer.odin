@@ -119,9 +119,8 @@ draw_rect :: proc(
     hit_vec := hit_point - p1
 
 
-    u := dot(hit_vec, wall_vec) / wall_len_sq
+    u := (dot(hit_vec, wall_vec)+wall_texture.offset.x) / wall_len_sq
     u *= wall_len / tex_data.width
-    u += wall_texture.offset.x / f32(tex.width)
     u = u - math.floor(u)
     tex_x := i32(u * f32(tex.width))
 
@@ -209,14 +208,12 @@ draw_floor :: proc(
         world_z := floor_world_x * sin_r + floor_world_y * cos_r
 
         u := i32(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
-        u2 := i32(((world_x2 + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
         v := i32(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height)) % i32(tex.texture.height)
 
         if u < 0 { u += i32(tex.texture.width) }
         if v < 0 { v += i32(tex.texture.height) }
 
         dest_rect := rl.Rectangle{x=f32(x), y=f32(py), width=f32(width), height=f32(RAYRES)}
-        // src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=f32(math.abs(u2-u + tex.texture.width)%tex.texture.width), height=1 }
         src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=1, height=1}
 
         rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
@@ -270,7 +267,6 @@ draw_ceil :: proc(
         world_z := ceil_world_x * sin_r + ceil_world_y * cos_r
 
         u := i32(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
-        u2 := i32(((world_x2 + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
         v := i32(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height)) % i32(tex.texture.height)
 
         if u < 0 { u += i32(tex.texture.width) }

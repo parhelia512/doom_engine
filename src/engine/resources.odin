@@ -7,7 +7,6 @@ TextureData :: struct {
     width, height: f32,
 }
 
-@private
 textures:map[string]TextureData
 
 @private

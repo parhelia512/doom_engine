@@ -45,6 +45,8 @@ Player :: struct {
 }
 
 free_world :: proc(world: ^World) {
+    //since these need to be alive throughout the entire program, clearing the array instead of freeing
+    //  like in the case where a new map is being loaded, will work just fine
     clear(&world.sectors)
     clear(&world.lines)
     clear(&world.points)

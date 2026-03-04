@@ -16,4 +16,4 @@
 - [X] fix the bug where when the wall isn't axis aligned collisions break
 - [ ] fix accuracy in this function
 - [ ] make collision detection less janky
-- [ ] add sector mode
+- [X] add sector mode

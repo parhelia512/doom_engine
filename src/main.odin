@@ -1,5 +1,4 @@
 package main
-//TASK(20260223-135227-270-n6-248): make a map editor
 
 import "core:math"
 import "core:log"
@@ -129,34 +128,34 @@ make_world :: proc(world: ^engine.World) {
     ))
 
     append(&world.lines, make_line(
-            3,
             4,
-            -1,
+            3,
             0,
+            -1,
             false,
-            make_line_texture_b(WallTexture{
+            make_line_texture_f(WallTexture{
                 middle=EngineTexture{"wall1", 0}
                 })
     ))
     append(&world.lines, make_line(
-            4,
             5,
-            -1,
+            4,
             1,
+            -1,
             false,
-            make_line_texture_b(WallTexture{
+            make_line_texture_f(WallTexture{
                 middle=EngineTexture{"wall1", Vec2{0, 2}}
                 })
     ))
 
 
     append(&world.lines, make_line(
-            0,
             3,
-            -1,
             0,
+            0,
+            -1,
             false,
-            make_line_texture_b(WallTexture{
+            make_line_texture_f(WallTexture{
                 middle=EngineTexture{"wall1", 0}
                 })
     ))
@@ -189,26 +188,27 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
     using rl
     move : Vec2
     rot : f32
-    if IsKeyDown(.W) {
-        move.y -= 1 
-    }
-    if IsKeyDown(.S) {
-        move.y += 1 
-    }
-    if IsKeyDown(.A) {
-        move.x -= 1 
-    }
-    if IsKeyDown(.D) {
-        move.x += 1 
-    }
+    if !WINDOW_FOCUS {
+        if IsKeyDown(.W) {
+            move.y -= 1 
+        }
+        if IsKeyDown(.S) {
+            move.y += 1 
+        }
+        if IsKeyDown(.A) {
+            move.x -= 1 
+        }
+        if IsKeyDown(.D) {
+            move.x += 1 
+        }
 
-    if IsKeyDown(.LEFT) {
-        rot -= 1 
+        if IsKeyDown(.LEFT) {
+            rot -= 1 
+        }
+        if IsKeyDown(.RIGHT) {
+            rot += 1 
+        }
     }
-    if IsKeyDown(.RIGHT) {
-        rot += 1 
-    }
-
     if IsKeyPressed(.F3) {
         GOD=!GOD
     }
@@ -221,19 +221,15 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
     if(IsKeyPressed(.F5)) {
         EDITOR=!EDITOR
     }
-    if WINDOW_FOCUS {
-        WINDOW_FOCUS=false
-        return
-    }
 
-    if IsKeyDown(.LEFT_SHIFT) {
+    if IsKeyDown(.LEFT_SHIFT) && !WINDOW_FOCUS {
         player.height = PLAYER_CROUCH
     } else {
         player.height = PLAYER_HEIGHT
     }
 
     wanted_y :=world.sectors[player.sector].floor
-    if IsKeyDown(.SPACE) {
+    if IsKeyDown(.SPACE) && !WINDOW_FOCUS {
         if player.pos.y <= wanted_y {
             player.vel.y += JUMP_HEIGHT 
         }
@@ -274,6 +270,7 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
         player.vel.z = n.y 
     } 
     //TASK(20260220-082010-127-n6-265): handle gravity
+    WINDOW_FOCUS = false
 }
 
 STEP_HEIGHT :: 1.5
