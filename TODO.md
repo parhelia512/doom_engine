@@ -17,3 +17,4 @@
 - [ ] fix accuracy in this function
 - [ ] make collision detection less janky
 - [X] add sector mode
+- [ ] fix bug in editor

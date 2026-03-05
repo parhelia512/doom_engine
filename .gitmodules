@@ -1,3 +1,6 @@
 [submodule "osdialog"]
 	path = osdialog
 	url = https://github.com/ttytm/osdialog-odin.git
+[submodule "src/nativefiledialog"]
+	path = src/nativefiledialog
+	url = https://github.com/ivansouzamf/nativefiledialog-odin

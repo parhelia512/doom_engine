@@ -1,4 +1,7 @@
+out:="build/main"
+
 build:
-    odin build src -out:build/main
+    odin build src -out:{{out}}
 run arg="":
-    odin run src {{arg}} -out:build/main
+    just build
+    {{out}} {{arg}}

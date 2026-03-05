@@ -422,7 +422,7 @@ frame:=0
 change :: proc(c: int) {
     RAYRES+=c
     frame = 10
-    RAYRES = math.clamp(RAYRES, 2, 20)
+    RAYRES = math.clamp(RAYRES, 2, 5)
 }
 
 render_world :: proc(world: ^World, player: ^Player) {

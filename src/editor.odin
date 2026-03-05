@@ -6,17 +6,71 @@ import "rlmu"
 import "core:log"
 import "core:math"
 import "core:fmt"
+import "core:strings"
 
 import "engine"
 
+import nfd "./nativefiledialog/"
+
 mode:=MODE.Point
+
+//TASK(20260305-141521-337-n6-054): fix bug in editor
+
+create_file_path::proc(allocator:=context.allocator) -> Maybe(string) {
+    nfd.Init()
+    defer nfd.Quit()
+    path: cstring
+    filters := ([1]nfd.Filter_Item { { "map", "map" } })
+    args := nfd.Save_Dialog_Args {
+        filter_list = raw_data(filters[:]),
+        filter_count = len(filters)
+    }
+    result := nfd.SaveDialogU8_With(&path, &args)
+    switch result {
+    case .Okay: {
+        defer nfd.FreePathU8(path)
+        s, e := strings.clone_from_cstring(path) 
+        log.assertf(e==nil, "string err %s", e)
+        return s
+    }
+case .Cancel:
+    return nil
+case .Error: 
+    return nil
+    }
+    return nil
+}
+load_file_path::proc(allocator:=context.allocator) -> Maybe(string) {
+    nfd.Init()
+    defer nfd.Quit()
+    path: cstring
+    filters := ([1]nfd.Filter_Item { { "map", "map" } })
+    args := nfd.Open_Dialog_Args {
+        filter_list = raw_data(filters[:]),
+        filter_count = len(filters)
+    }
+    result := nfd.OpenDialogU8_With(&path, &args)
+    switch result {
+    case .Okay: {
+        defer nfd.FreePathU8(path)
+        s, e := strings.clone_from_cstring(path) 
+        log.assertf(e==nil, "string err %s", e)
+        return s
+    }
+case .Cancel:
+    return nil
+case .Error: 
+    return nil
+    }
+    return nil
+}
 
 remove_line_point::proc(point: ^engine.Vec2, world: ^engine.World) ->bool {
     idx:=-1
     for i in 0..<len(world.points) {
         if &world.points[i] == point {
             idx = i
-            continue
+            break
         }
     }
     return remove_line(idx, world)
@@ -160,7 +214,7 @@ remove_sector::proc(idx: int, world: ^engine.World) ->bool {
     return true
 }
 
-editor_controls::proc(width, height: i32, world: ^engine.World) {
+editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.Player) {
     using rl
     if IsKeyPressed(.ONE) {
         line_maker_type = .NONE
@@ -169,6 +223,24 @@ editor_controls::proc(width, height: i32, world: ^engine.World) {
     if IsKeyPressed(.TWO) {
         line_maker_type = .NONE
         mode=MODE.Line
+    }
+    if IsKeyPressed(.THREE) {
+        line_maker_type = .NONE
+        mode=MODE.Player
+    }
+    if IsKeyPressed(.S) && IsKeyDown(.LEFT_CONTROL) {
+        s:=create_file_path()
+        if s != nil {
+            defer delete(s.?)
+            engine.save_world(world, s.?)
+        }
+    }
+    if IsKeyPressed(.L) && IsKeyDown(.LEFT_CONTROL) {
+        s:=load_file_path()
+        if s != nil {
+            defer delete(s.?)
+            engine.load_world(world, s.?, player)
+        }
     }
     if IsKeyPressed(.ESCAPE) {
         line_maker_type = .NONE
@@ -220,6 +292,7 @@ editor_controls::proc(width, height: i32, world: ^engine.World) {
                 line_maker_line = nil
             }
         }
+    case .Player:
     }
 }
 
@@ -236,6 +309,7 @@ line_maker_line:Maybe(engine.Vec2)= nil
 
 //TASK(20260301-001613-540-n6-328): add sector mode
 MODE::enum {
+    Player,
     Point,
     Line,
 }
@@ -267,7 +341,7 @@ SELECTED_COLOR :: rl.RED
 
 handle_collide_point::proc(p1, p2: engine.Vec2, cp1, cp2, cline: ^rl.Color, op1, op2: ^engine.Vec2, focus: bool) {
     using rl
-    if hoverp == nil && focus {
+    if hoverp == nil && focus && dragp == nil {
         if CheckCollisionCircles(p1, 2, GetMousePosition(), 2) {
             cp1^ = HOVER_COLOR
             hoverp = op1 
@@ -330,7 +404,7 @@ get_line_hover::proc(world: ^engine.World, width, height: i32)->int {
 
 handle_collide_line::proc(p1, p2: engine.Vec2, cp1, cp2, cline: ^rl.Color, op1, op2: ^engine.Vec2, focus: bool) {
     using rl
-    if !hoverl && CheckCollisionCircleLine(GetMousePosition(), 2, p1, p2) && focus {
+    if !hoverl && CheckCollisionCircleLine(GetMousePosition(), 2, p1, p2) && focus && dragl=={nil, nil} {
         hoverl = true
         cline^ = HOVER_COLOR
 
@@ -405,6 +479,17 @@ draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
     p2 := get_point_hover(world, width, height)
     if p2 == -1 {
         DrawLineV(translate(world.points[p1], width, height), GetMousePosition(), WHITE)
+        p2:=len(world.points)
+        if IsMouseButtonPressed(.LEFT) {
+            append(&world.points, untranslate(GetMousePosition(), width, height))
+            line_maker_type = .NONE
+            append(&world.lines, engine.Line{
+                p1=p1,
+                p2=p2,
+                sf=-1,
+                sb=-1,
+            })
+        }
     } else {
         DrawLineV(translate(world.points[p1], width, height), translate(world.points[p2], width, height), WHITE)
         if IsMouseButtonPressed(.LEFT) {
@@ -419,12 +504,12 @@ draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
     }
 }
 
-draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: bool) {
+draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: bool, player: ^engine.Player) {
     using rl
     hoverp = nil
     hoverl = false
     if focus {
-        editor_controls(width, height, world)
+        editor_controls(width, height, world, player)
     }
     ClearBackground(BLACK)
     for line in world.lines {
@@ -450,6 +535,15 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
             dragp = nil
             selectp = nil
             handle_collide_line(p1, p2, &cp1, &cp2, &cline, op1, op2, focus)
+        case .Player:
+            selectl = {nil, nil}
+            dragl = {nil, nil}
+            dragp = nil
+            selectp = nil
+            DrawCircleV(translate(world.player_start, width, height), 2, PURPLE)
+            if IsMouseButtonPressed(.LEFT) && focus {
+                world.player_start = untranslate(GetMousePosition(), width, height)
+            }
         }
         DrawCircleV(p1, 2, cp1)
         DrawCircleV(p2, 2, cp2)
@@ -497,6 +591,7 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
         if IsMouseButtonPressed(.RIGHT) && !hoverl {
             selectl = {nil, nil} 
         }
+    case .Player:
     }
 }
 
@@ -504,7 +599,7 @@ editor_texture_width:i32 = 0
 editor_texture_height:i32 = 0
 editor_texture:rl.RenderTexture
 
-draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World) {
+draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player) {
     window_width:=rl.GetRenderWidth()
     window_height:=rl.GetRenderHeight()
     if mu.window(ctx, "Editor", mu.Rect{window_width/2-700/2, window_height/2-500/2, 700, 500}) {
@@ -528,7 +623,7 @@ draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^en
 
         rl.BeginTextureMode(editor_texture)
         rl.SetMouseOffset(-x, -y)
-        draw_editor_internals(world, width, height, ctx.hover_root== mu.get_current_container(ctx))
+        draw_editor_internals(world, width, height, ctx.hover_root == mu.get_current_container(ctx), player)
         rl.SetMouseOffset(0, 0)
         rl.EndTextureMode()
         has_focus^ =ctx.hover_root!=nil||has_focus^
@@ -641,7 +736,20 @@ draw_line_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World
                 }
             }
         }
-        mu.checkbox(ctx, "portal", &line.portal)
+        if ctx.hover_root == mu.get_current_container(ctx) {
+            mu.checkbox(ctx, "portal", &line.portal)
+        } else {
+            p:=line.portal
+            mu.checkbox(ctx, "portal", &p)
+        }
+        if line.portal {
+            if ctx.hover_root == mu.get_current_container(ctx) {
+                mu.checkbox(ctx, "portal solid", &line.portal_solid)
+            } else {
+                p:=line.portal_solid
+                mu.checkbox(ctx, "portal solid", &p)
+            }
+        }
         if .SUBMIT in mu.button(ctx, "Flip Normal") {
             t:=line.p1
             line.p1 = line.p2
@@ -725,11 +833,11 @@ draw_sector_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
     }
 }
 
-draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World) {
+draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player) {
     if !render^ {
         return
     }
-    draw_editor_window(ctx, render, has_focus, world)
+    draw_editor_window(ctx, render, has_focus, world, player)
     draw_line_window(ctx, has_focus, world)
     draw_sector_window(ctx, has_focus, world)
 }

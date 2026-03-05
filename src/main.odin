@@ -6,6 +6,7 @@ import "core:strings"
 import "core:c"
 import "core:c/libc"
 import "base:runtime"
+import "core:os"
 
 import rl "vendor:raylib"
 import mu "vendor:microui"
@@ -40,148 +41,6 @@ EDITOR:=false
 WINDOW_FOCUS:=false
 
 //TASK(20260224-130850-786-n6-230): give the player a width
-
-make_line :: proc(
-    p1, p2: int,
-    sf:int = -1,
-    sb: int = -1,
-    portal:bool = false,
-    texture: engine.LineTexture = engine.LineTexture{},
-)->engine.Line {
-    return engine.Line {
-        p1=p1,
-        p2=p2,
-        sf=sf,
-        sb=sb,
-        portal=portal,
-        texture=texture,
-    } 
-}
-
-make_line_texture_f :: proc(s:engine.WallTexture)->engine.LineTexture {
-    return engine.LineTexture {
-        front=s
-    }
-}
-make_line_texture_b :: proc(s:engine.WallTexture)->engine.LineTexture {
-    return engine.LineTexture {
-        back=s
-    }
-}
-make_line_texture_a :: proc(s:engine.WallTexture)->engine.LineTexture {
-    return engine.LineTexture {
-        back=s,
-        front=s,
-    }
-}
-make_line_texture_fb :: proc(f, b:engine.WallTexture)->engine.LineTexture {
-    return engine.LineTexture {
-        front=f,
-        back=b,
-    }
-}
-
-make_world :: proc(world: ^engine.World) {
-    using engine
-    append(&world.points, Vec2{-10, -5})
-    append(&world.points, Vec2{0, -5})
-    append(&world.points, Vec2{10, -5})
-
-    append(&world.points, Vec2{-10, 5})
-    append(&world.points, Vec2{0, 5})
-    append(&world.points, Vec2{10, 5})
-
-    s1:Sector
-    s1.height=10
-    s1.floor= 0
-    s1.floor_text = EngineTexture{"flat1", 0}
-    s1.ceil_text= EngineTexture{"ceil1", 0}
-
-    s2:Sector
-    s2.height=4.5
-    s2.floor= 0
-    s2.floor_text = EngineTexture{"flat2", 0}
-    s2.ceil_text= EngineTexture{"ceil2", 0}
-
-    append(&world.sectors, s1)
-    append(&world.sectors, s2)
-
-    append(&world.lines, make_line(
-            0,
-            1,
-            0,
-            -1,
-            false,
-            make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall1", 0}
-                })
-    ))
-    append(&world.lines, make_line(
-            1,
-            2,
-            1,
-            -1,
-            false,
-            make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall1", Vec2{0, 2}}
-                })
-    ))
-
-    append(&world.lines, make_line(
-            4,
-            3,
-            0,
-            -1,
-            false,
-            make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall1", 0}
-                })
-    ))
-    append(&world.lines, make_line(
-            5,
-            4,
-            1,
-            -1,
-            false,
-            make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall1", Vec2{0, 2}}
-                })
-    ))
-
-
-    append(&world.lines, make_line(
-            3,
-            0,
-            0,
-            -1,
-            false,
-            make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall1", 0}
-                })
-    ))
-    append(&world.lines, make_line(
-            2,
-            5,
-            1,
-            -1,
-            false,
-            make_line_texture_f(WallTexture{
-                middle=EngineTexture{"wall2", Vec2{0, 2}}
-                })
-    ))
-
-    append(&world.lines, make_line(
-            1,
-            4,
-            0,
-            1,
-            true,
-            make_line_texture_a(WallTexture{
-                top=EngineTexture{"wall1", 0},
-                bottom=EngineTexture{"wall1", 0},
-            })
-    ))
-}
 
 controls :: proc(player: ^engine.Player, world: ^engine.World) {
     using engine
@@ -228,6 +87,9 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
         player.height = PLAYER_HEIGHT
     }
 
+    if len(world.sectors) == 0 {
+        return
+    }
     wanted_y :=world.sectors[player.sector].floor
     if IsKeyDown(.SPACE) && !WINDOW_FOCUS {
         if player.pos.y <= wanted_y {
@@ -357,12 +219,15 @@ get_textures :: proc() {
     set_texture("flat2", "./assets/flats/flat1.png", 10, 10)
     set_texture("ceil1", "./assets/flats/flat5.png", 10, 10)
     set_texture("ceil2", "./assets/flats/ceil3_3.png", 10, 10)
+
+    set_texture("brns1", "./assets/textures/brnsmal1.png", 10, 10)
+    set_texture("brns2", "./assets/textures/brnsmal2.png", 10, 10)
 }
 
-draw_ui :: proc(world: ^engine.World) {
+draw_ui :: proc(world: ^engine.World, player: ^engine.Player) {
     ctx:=rlmu.begin_scope()
     windows.draw_console(ctx, &DEBUG, &WINDOW_FOCUS);
-    draw_editor(ctx, &EDITOR, &WINDOW_FOCUS, world)
+    draw_editor(ctx, &EDITOR, &WINDOW_FOCUS, world, player)
 }
 
 create_commands :: proc() {
@@ -422,9 +287,12 @@ main :: proc() {
 
     create_commands()
 
-    make_world(&world)
-
     player: Player
+
+    if len(os.args) > 1 {
+        load_world(&world, os.args[1], &player)
+    }
+
     player.pos = Vec3{-5, 0, 0}
     player.rot = math.PI/2
     player.height = PLAYER_HEIGHT
@@ -441,12 +309,14 @@ main :: proc() {
         update(&player, &world)
         BeginDrawing()
         ClearBackground(BLACK)
-        render_world(&world, &player)
+        if len(world.sectors) > 0 {
+            render_world(&world, &player)
+        }
         if SHOWFPS {
             DrawFPS(10, 10)
         }
 
-        draw_ui(&world)
+        draw_ui(&world, &player)
 
         EndDrawing()
     }

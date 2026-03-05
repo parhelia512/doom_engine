@@ -20,6 +20,7 @@ EngineTexture :: struct {
 Line :: struct {
     p1, p2: int,
     portal: bool,
+    portal_solid: bool, //doesn't do anything if false
     sf, sb: int,
     texture: LineTexture,
 }
@@ -35,6 +36,7 @@ World :: struct {
     lines: [dynamic]Line,
     points: [dynamic]Vec2,
     sectors: [dynamic]Sector,
+    player_start: Vec2,
 }
 
 Player :: struct {
@@ -45,11 +47,9 @@ Player :: struct {
 }
 
 free_world :: proc(world: ^World) {
-    //since these need to be alive throughout the entire program, clearing the array instead of freeing
-    //  like in the case where a new map is being loaded, will work just fine
-    clear(&world.sectors)
-    clear(&world.lines)
-    clear(&world.points)
+    delete(world.lines)
+    delete(world.points)
+    delete(world.sectors)
 }
 
 CollisionInfo :: struct {
@@ -89,6 +89,9 @@ check_collide :: proc(ray_start, ray_end: Vec2, world: ^World) -> (bool, Collisi
                     is_portal=line.portal
                 } 
                 if line.portal {
+                    if line.portal_solid {
+                        info.is_portal = false
+                    }
                     back_idx := isback? line.sf: line.sb 
                     if back_idx == -1 {
                         continue
