@@ -423,6 +423,7 @@ main :: proc() {
     create_commands()
 
     make_world(&world)
+
     player: Player
     player.pos = Vec3{-5, 0, 0}
     player.rot = math.PI/2

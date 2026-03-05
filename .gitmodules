@@ -1,0 +1,3 @@
+[submodule "osdialog"]
+	path = osdialog
+	url = https://github.com/ttytm/osdialog-odin.git
