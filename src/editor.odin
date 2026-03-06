@@ -81,7 +81,7 @@ remove_line_point_idx::proc(idx: int, world: ^engine.World) ->bool {
         return false
     }
     end_at :=-1
-    checks := make_map(map[int]bool)
+    checks := make([dynamic]Maybe(bool), len(world.points))
     defer delete(checks)
     i := 0
     for i <len(world.lines) {
@@ -98,21 +98,21 @@ remove_line_point_idx::proc(idx: int, world: ^engine.World) ->bool {
             cont2 = true
         }
         //this is its position for after idx gets deleted
-        if p1^ in checks {
+        if checks[p1^] != nil {
             checks[p1^] = true
         }
-        if p2^ in checks {
+        if checks[p2^] != nil {
             checks[p2^] = true 
         }
         if p1^ == idx && !cont1 {
             ordered_remove(&world.lines, i)
-            if !(p2^ in checks) {
+            if checks[p2^] == nil {
                 checks[p2^] = false
             } 
             end_at = i
         } else if p2^ == idx && !cont2 {
             ordered_remove(&world.lines, i)
-            if !(p1^ in checks) {
+            if checks[p1^] == nil {
                 checks[p1^] = false
             } 
             end_at = i
@@ -127,19 +127,21 @@ remove_line_point_idx::proc(idx: int, world: ^engine.World) ->bool {
     for i in 0..<end_at {
         p1 := world.lines[i].p1
         p2 := world.lines[i].p2
-        if p1 in checks {
+        if checks[p1] != nil {
             checks[p1] = true
         }
-        if p2 in checks {
+        if checks[p2] != nil {
             checks[p2] = true
         }
     }
     del:=0
-    for key, val in checks {
-        if !val {
-            ordered_remove(&world.points, key-del)
-            del+=1
+    for i in 0..<len(checks) {
+        val := checks[i]
+        if val == nil || val==true {
+            continue
         }
+        ordered_remove(&world.points, i-del)
+        del+=1
     }
     return true
 }
