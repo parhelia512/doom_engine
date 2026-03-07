@@ -129,6 +129,9 @@ draw_rect :: proc(
     tex_y := v * f32(tex.height)
     scale := wall_height / tex_data.height
     source_height := f32(tex.height) * scale
+    if wall_texture.anchor_bottom {
+        tex_y = f32(tex.height) - source_height - v * f32(tex.height)
+    }
 
     source := rl.Rectangle{
         x = f32(tex_x),

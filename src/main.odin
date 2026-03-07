@@ -10,6 +10,7 @@ import "core:os"
 
 import rl "vendor:raylib"
 import mu "vendor:microui"
+import lua "vendor:lua/5.4"
 import "rlmu"
 
 import "windows"
@@ -206,8 +207,9 @@ move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Ve
 }
 
 
-update :: proc(player: ^engine.Player, world: ^engine.World) {
+update :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State) {
     controls(player, world) 
+    engine.update_script(state, rl.GetFrameTime())
 }
 
 get_textures :: proc() {
@@ -222,6 +224,9 @@ get_textures :: proc() {
 
     set_texture("brns1", "./assets/textures/brnsmal1.png", 10, 10)
     set_texture("brns2", "./assets/textures/brnsmal2.png", 10, 10)
+
+
+    set_texture("door", "./assets/textures/bigdoor1.png", 10, 10)
 }
 
 draw_ui :: proc(world: ^engine.World, player: ^engine.Player) {
@@ -285,16 +290,15 @@ main :: proc() {
     using engine
     world: World
 
+    state:=load_file("./test.lua", &world)
+    defer close(state)
+
     create_commands()
 
     player: Player
-
     if len(os.args) > 1 {
         load_world(&world, os.args[1], &player)
     }
-
-    player.pos = Vec3{-5, 0, 0}
-    player.rot = math.PI/2
     player.height = PLAYER_HEIGHT
     InitWindow(WIDTH, HEIGHT, TITLE)
     defer CloseWindow()
@@ -306,7 +310,7 @@ main :: proc() {
     SetExitKey(.KEY_NULL)
 
     for !WindowShouldClose() {
-        update(&player, &world)
+        update(&player, &world, state)
         BeginDrawing()
         ClearBackground(BLACK)
         if len(world.sectors) > 0 {

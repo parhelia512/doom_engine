@@ -15,14 +15,16 @@ LineTexture :: struct {
 EngineTexture :: struct {
     texture: string,
     offset: Vec2,
+    anchor_bottom: bool, // wont do anything on a texture
 }
 
 Line :: struct {
     p1, p2: int,
     portal: bool,
-    portal_solid: bool, //doesn't do anything if false
+    portal_solid: bool, //doesn't do anything if portal is false
     sf, sb: int,
     texture: LineTexture,
+    tag: u16,
 }
 
 Sector :: struct {
@@ -30,6 +32,7 @@ Sector :: struct {
     height: f32,
     floor_text: EngineTexture,
     ceil_text: EngineTexture,
+    tag: u16,
 }
 
 World :: struct {
@@ -37,6 +40,7 @@ World :: struct {
     points: [dynamic]Vec2,
     sectors: [dynamic]Sector,
     player_start: Vec2,
+    player_start_rot: int,
 }
 
 Player :: struct {

@@ -542,7 +542,9 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
             dragl = {nil, nil}
             dragp = nil
             selectp = nil
-            DrawCircleV(translate(world.player_start, width, height), 2, PURPLE)
+            dp:=translate(world.player_start, width, height)
+            DrawCircleV(dp, 2, PURPLE)
+            DrawLineV(dp, dp+engine.rotate(engine.Vec2{0, -10}, math.to_radians_f32(f32(world.player_start_rot))), PURPLE)
             if IsMouseButtonPressed(.LEFT) && focus {
                 world.player_start = untranslate(GetMousePosition(), width, height)
             }
@@ -668,15 +670,40 @@ texture_dropdown :: proc(ctx: ^mu.Context, label: string, button_label: ^string)
     }
 }
 
-slide_int::proc(ctx: ^mu.Context, number: ^int, step: int, formatstr: string, min, max: int) -> mu.Result_Set {
+slide_int_t::proc($T:typeid, ctx: ^mu.Context, number: ^T, step: T, formatstr: string, min, max: T) -> mu.Result_Set {
     @static t:f32
     mu.push_id(ctx, uintptr(number));
     t=f32(number^)
     a:=mu.slider(ctx, &t, f32(min), f32(max), f32(step), formatstr)
-    number^ = int(t)
+    number^ = T(t)
     mu.pop_id(ctx)
     return a
 }
+
+slide_int_int::proc(ctx: ^mu.Context, number: ^int, step: int, formatstr: string, min, max: int)->mu.Result_Set {
+    return slide_int_t(int, ctx, number, step, formatstr, min, max)
+}
+slide_int_u16::proc(ctx: ^mu.Context, number: ^u16, step: u16, formatstr: string, min, max: u16)->mu.Result_Set {
+    return slide_int_t(u16, ctx, number, step, formatstr, min, max)
+}
+
+number_u16::proc(ctx: ^mu.Context, number: ^u16, step: u16, min, max: u16, formatstr: string) -> mu.Result_Set {
+    @static t:f32
+    mu.push_id(ctx, uintptr(number));
+    t=f32(number^)
+    a:=mu.number(ctx, &t, f32(step), formatstr)
+    if t < f32(min) {
+        t = f32(min)
+    }
+    if t > f32(max) {
+        t = f32(max)
+    }
+    number^ = u16(t)
+    mu.pop_id(ctx)
+    return a
+}
+
+slide_int::proc{slide_int_t, slide_int_int, slide_int_u16}
 
 hover_begin :: proc(ctx: ^mu.Context, name: string) -> bool {
     id := mu.get_id(ctx, name)
@@ -708,16 +735,34 @@ draw_line_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World
                     texture_dropdown(ctx, "TEXTURE_FRONT_TOP_TEXTURE", &line.texture.front.top.texture)
                     mu.number(ctx, &line.texture.front.top.offset.x, .5, "offset x: %.1f")
                     mu.number(ctx, &line.texture.front.top.offset.y, .5, "offset y: %.1f")
+                    if ctx.hover_root == mu.get_current_container(ctx) {
+                        mu.checkbox(ctx, "anchor bottom", &line.texture.front.top.anchor_bottom)
+                    } else {
+                        p:=line.texture.front.top.anchor_bottom
+                        mu.checkbox(ctx, "anchor bottom", &p)
+                    }
                 }
                 if .ACTIVE in mu.treenode(ctx, "MIDDLE") {
                     texture_dropdown(ctx, "TEXTURE_FRONT_MIDDLE_TEXTURE", &line.texture.front.middle.texture)
                     mu.number(ctx, &line.texture.front.middle.offset.x, .5, "offset x: %.1f")
                     mu.number(ctx, &line.texture.front.middle.offset.y, .5, "offset y: %.1f")
+                    if ctx.hover_root == mu.get_current_container(ctx) {
+                        mu.checkbox(ctx, "anchor bottom", &line.texture.front.middle.anchor_bottom)
+                    } else {
+                        p:=line.texture.front.middle.anchor_bottom
+                        mu.checkbox(ctx, "anchor bottom", &p)
+                    }
                 }
                 if .ACTIVE in mu.treenode(ctx, "BOTTOM") {
                     texture_dropdown(ctx, "TEXTURE_FRONT_BOTTOM_TEXTURE", &line.texture.front.bottom.texture)
                     mu.number(ctx, &line.texture.front.bottom.offset.x, .5, "offset x: %.1f")
                     mu.number(ctx, &line.texture.front.bottom.offset.y, .5, "offset y: %.1f")
+                    if ctx.hover_root == mu.get_current_container(ctx) {
+                        mu.checkbox(ctx, "anchor bottom", &line.texture.front.bottom.anchor_bottom)
+                    } else {
+                        p:=line.texture.front.bottom.anchor_bottom
+                        mu.checkbox(ctx, "anchor bottom", &p)
+                    }
                 }
             }
             if .ACTIVE in mu.treenode(ctx, "BACK") {
@@ -725,16 +770,34 @@ draw_line_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World
                     texture_dropdown(ctx, "TEXTURE_BACK_TOP_TEXTURE", &line.texture.back.top.texture)
                     mu.number(ctx, &line.texture.back.top.offset.x, .5, "offset x: %.1f")
                     mu.number(ctx, &line.texture.back.top.offset.y, .5, "offset y: %.1f")
+                    if ctx.hover_root == mu.get_current_container(ctx) {
+                        mu.checkbox(ctx, "anchor bottom", &line.texture.back.top.anchor_bottom)
+                    } else {
+                        p:=line.texture.back.top.anchor_bottom
+                        mu.checkbox(ctx, "anchor bottom", &p)
+                    }
                 }
                 if .ACTIVE in mu.treenode(ctx, "MIDDLE") {
                     texture_dropdown(ctx, "TEXTURE_BACK_MIDDLE_TEXTURE", &line.texture.back.middle.texture)
                     mu.number(ctx, &line.texture.back.middle.offset.x, .5, "offset x: %.1f")
                     mu.number(ctx, &line.texture.back.middle.offset.y, .5, "offset y: %.1f")
+                    if ctx.hover_root == mu.get_current_container(ctx) {
+                        mu.checkbox(ctx, "anchor bottom", &line.texture.back.middle.anchor_bottom)
+                    } else {
+                        p:=line.texture.back.middle.anchor_bottom
+                        mu.checkbox(ctx, "anchor bottom", &p)
+                    }
                 }
                 if .ACTIVE in mu.treenode(ctx, "BOTTOM") {
                     texture_dropdown(ctx, "TEXTURE_BACK_BOTTOM_TEXTURE", &line.texture.back.bottom.texture)
                     mu.number(ctx, &line.texture.back.bottom.offset.x, .5, "offset x: %.1f")
                     mu.number(ctx, &line.texture.back.bottom.offset.y, .5, "offset y: %.1f")
+                    if ctx.hover_root == mu.get_current_container(ctx) {
+                        mu.checkbox(ctx, "anchor bottom", &line.texture.back.bottom.anchor_bottom)
+                    } else {
+                        p:=line.texture.back.bottom.anchor_bottom
+                        mu.checkbox(ctx, "anchor bottom", &p)
+                    }
                 }
             }
         }
@@ -787,7 +850,7 @@ draw_line_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World
                 height=10,
             })
         }
-
+        number_u16(ctx, &line.tag, 1, 0, 65535, "tag: %.0f")
     } else {
         mu.get_container(ctx, "Line Editor").open=true
         selectl = {nil, nil}
@@ -829,6 +892,7 @@ draw_sector_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
             remove_sector(selects, world)
             selects = -1
         }
+        number_u16(ctx, &sector.tag, 1, 0, 65535, "tag: %.0f")
     } else {
         mu.get_container(ctx, "Sectors Editor").open=true
         selects = -1
