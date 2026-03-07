@@ -627,7 +627,17 @@ draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^en
 
         rl.BeginTextureMode(editor_texture)
         rl.SetMouseOffset(-x, -y)
-        draw_editor_internals(world, width, height, ctx.hover_root == mu.get_current_container(ctx), player)
+        draw_editor_internals(
+            world, 
+            width,
+            height,
+            ctx.hover_root == mu.get_current_container(ctx) &&
+            rl.GetMouseX()>=0 && 
+            rl.GetMouseX()<=width && 
+            rl.GetMouseY()>=0 && 
+            rl.GetMouseY()<=height, 
+            player
+            )
         rl.SetMouseOffset(0, 0)
         rl.EndTextureMode()
         has_focus^ =ctx.hover_root!=nil||has_focus^
@@ -898,6 +908,17 @@ draw_sector_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
         selects = -1
     }
 }
+draw_player_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World) {
+    if mode != .Player{
+        return
+    }
+    window_width:=rl.GetRenderWidth()
+    window_height:=rl.GetRenderHeight()
+    if mu.window(ctx, "Player Editor", mu.Rect{window_width/2-700/2, window_height/2-500/2, 700, 500}, {.NO_CLOSE}) {
+        mu.layout_row(ctx, {-1}, 0)
+        slide_int(ctx, &world.player_start_rot, 1, "rotation: %.0f", 0, 360)
+    }
+}
 
 draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player) {
     if !render^ {
@@ -906,4 +927,5 @@ draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.Wo
     draw_editor_window(ctx, render, has_focus, world, player)
     draw_line_window(ctx, has_focus, world)
     draw_sector_window(ctx, has_focus, world)
+    draw_player_window(ctx, has_focus, world)
 }

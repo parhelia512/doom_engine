@@ -209,7 +209,9 @@ move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Ve
 
 update :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State) {
     controls(player, world) 
-    engine.update_script(state, rl.GetFrameTime())
+    if !EDITOR {
+        engine.update_script(state, rl.GetFrameTime())
+    }
 }
 
 get_textures :: proc() {
@@ -289,16 +291,16 @@ main :: proc() {
     using rl
     using engine
     world: World
+    player: Player
+    if len(os.args) > 1 {
+        load_world(&world, os.args[1], &player)
+    }
 
     state:=load_file("./test.lua", &world)
     defer close(state)
 
     create_commands()
 
-    player: Player
-    if len(os.args) > 1 {
-        load_world(&world, os.args[1], &player)
-    }
     player.height = PLAYER_HEIGHT
     InitWindow(WIDTH, HEIGHT, TITLE)
     defer CloseWindow()

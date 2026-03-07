@@ -23,7 +23,7 @@ lua_allocator :: proc "c" (ud: rawptr, ptr: rawptr, osize, nsize: c.size_t) -> (
     }
 }
 
-update_fn:Maybe(c.int)
+update_fn:[dynamic]c.int
 
 import "core:fmt"
 add_function :: proc(state: ^lua.State, p: lua.CFunction, name: cstring) {
@@ -96,16 +96,12 @@ load_file :: proc(file: string, world: ^World, allocator:=context.allocator, log
         context=runtime.default_context()
         context.logger = logger 
         if lua.isfunction(state, 2) {
-            if update_fn != nil {
-                lua.L_unref(state, lua.REGISTRYINDEX, update_fn.?)
-            }
-            update_fn = lua.L_ref(state, lua.REGISTRYINDEX)
-            log.info("added function")
+            append(&update_fn, lua.L_ref(state, lua.REGISTRYINDEX))
         } else {
             log.error("expected function")
         }
         return 0 
-    }, "set_update")
+    }, "add_task")
 
     lua.pushvalue(state, -1)
     lua.setfield(state, -2, "__index")
@@ -113,22 +109,45 @@ load_file :: proc(file: string, world: ^World, allocator:=context.allocator, log
 
     lua.setglobal(state, "world")
 
-    lua.L_dofile(state, str)
+    if lua.L_dofile(state, str) != 0 {
+        log.error(lua.tostring(state, -1))
+        lua.pop(state, -1)
+    }
     return state
 }
 
 update_script :: proc(state: ^lua.State, dt: f32) {
-    val, c:=update_fn.?
-    if c {
-        lua.rawgeti(state, lua.REGISTRYINDEX, (lua.Integer)(val))
+    remove:=make([dynamic]int)
+    defer delete(remove)
+    for idx in 0..<len(update_fn) {
+        i:=update_fn[idx]
+        lua.rawgeti(state, lua.REGISTRYINDEX, (lua.Integer)(i))
         lua.pushnumber(state, (lua.Number)(dt))
-        lua.pcall(state, 1, 0, 0)
+        if lua.pcall(state, 1, 1, 0) != 0 {
+            log.error(lua.tostring(state, -1))
+            lua.pop(state, -1)
+            append(&remove, idx)
+            continue
+        }
+        if lua.isboolean(state, -1) {
+            b := lua.toboolean(state, -1)
+            lua.pop(state, -1)
+            if b {
+                append(&remove, idx)
+            }
+        }
+    }
+    del := 0
+    for i in remove {
+        ordered_remove(&update_fn, i-del)
+        del+=1
     }
 }
 
 close :: proc(state: ^lua.State) {
-    if update_fn != nil {
-        lua.L_unref(state, lua.REGISTRYINDEX, update_fn.?)
+    for i in update_fn {
+        lua.L_unref(state, lua.REGISTRYINDEX, i)
     }
+    delete(update_fn)
     lua.close(state)
 }
