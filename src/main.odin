@@ -219,30 +219,10 @@ update :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State) 
     }
 }
 
-get_textures :: proc() {
-    using engine
-    gen_default(10, 10)
-    set_texture("wall1", "./assets/textures/startan2.png", 10, 10)
-    set_texture("wall2", "./assets/textures/startan3.png", 10, 10)
-    set_texture("flat1", "./assets/flats/flat10.png", 10, 10)
-    set_texture("flat2", "./assets/flats/flat1.png", 10, 10)
-    set_texture("ceil1", "./assets/flats/flat5.png", 10, 10)
-    set_texture("ceil2", "./assets/flats/ceil3_3.png", 10, 10)
-
-    set_texture("brns1", "./assets/textures/brnsmal1.png", 10, 10)
-    set_texture("brns2", "./assets/textures/brnsmal2.png", 10, 10)
-
-    set_texture("door", "./assets/textures/bigdoor1.png", 10, 10)
-
-    set_texture("buttonoff", "./assets/switches/doublegreenred-off.png", 2.636719, 2.636719)
-    set_texture("buttonon", "./assets/switches/doublegreenred-on.png", 2.636719, 2.636719)
-
-}
-
-draw_ui :: proc(world: ^engine.World, player: ^engine.Player) {
+draw_ui :: proc(world: ^engine.World, player: ^engine.Player, state: ^^lua.State) {
     ctx:=rlmu.begin_scope()
     windows.draw_console(ctx, &DEBUG, &WINDOW_FOCUS);
-    draw_editor(ctx, &EDITOR, &WINDOW_FOCUS, world, player)
+    draw_editor(ctx, &EDITOR, &WINDOW_FOCUS, world, player, state)
 }
 
 create_commands :: proc() {
@@ -300,23 +280,22 @@ main :: proc() {
     using engine
     world: World
     player: Player
+    state:^lua.State
+    InitWindow(WIDTH, HEIGHT, TITLE)
     if len(os.args) > 1 {
-        load_world(&world, os.args[1], &player)
+        load_map_pack(&world, os.args[1], &player, &state, "map01")
     }
 
-    state:=load_file("./test.lua", &world)
-    defer close(state)
+    defer if state != nil {close(state, &world)}
 
     create_commands()
 
     player.height = PLAYER_HEIGHT
-    InitWindow(WIDTH, HEIGHT, TITLE)
     defer CloseWindow()
     defer free_world(&world);
 
     ctx:=rlmu.init_scope()
 
-    get_textures()
     SetExitKey(.KEY_NULL)
 
     for !WindowShouldClose() {
@@ -329,8 +308,21 @@ main :: proc() {
         if SHOWFPS {
             DrawFPS(10, 10)
         }
+        w:i32=20
+        x:i32=WIDTH/2-w/2
+        h:i32=2
+        y:i32=HEIGHT/2-h/2
 
-        draw_ui(&world, &player)
+        w2:i32=h
+        x2:i32=WIDTH/2-w2/2
+        h2:i32=w
+        y2:i32=HEIGHT/2-h2/2
+        DrawRectangle(x-2, y-2, w+4, h+4, BLACK)
+        DrawRectangle(x2-2, y2-2, w2+4, h2+4, BLACK)
+        DrawRectangle(x, y, w, h, WHITE)
+        DrawRectangle(x2, y2, w2, h2, WHITE)
+
+        draw_ui(&world, &player, &state)
 
         EndDrawing()
     }

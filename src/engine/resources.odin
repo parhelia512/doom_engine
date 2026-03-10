@@ -1,6 +1,7 @@
 package engine
 import rl "vendor:raylib"
 import "core:strings"
+import "core:log"
 
 TextureData :: struct {
     texture: rl.Texture,
@@ -28,7 +29,10 @@ gen_default::proc(width, height:f32) {
         }
     }
     texture := LoadTextureFromImage(image)
-    textures[DEFAULT_NAME] = TextureData{
+    if DEFAULT_NAME in textures {
+        UnloadTexture(textures[DEFAULT_NAME].texture)
+    }
+    textures[DEFAULT_NAME] = TextureData {
         texture=texture,
         width=width,
         height=height,
@@ -52,11 +56,19 @@ set_texture::proc(name, file:string, width, height: f32) {
     str := strings.clone_to_cstring(file)
     defer delete(str)
     image := LoadImage(str)
+    if image.data == nil {
+        log.error("failed to load image: %s", file)
+        return
+    }
     defer UnloadImage(image)
+    if name in textures {
+        UnloadTexture(textures[name].texture)
+    }
     texture:=LoadTextureFromImage(image)
     textures[name] = TextureData {
         texture=texture,
         width=width,
         height=height,
     }
+    log.info("loaded image: %s", file)
 }

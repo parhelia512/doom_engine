@@ -2,6 +2,7 @@ package engine
 import rl "vendor:raylib"
 import "core:strings"
 import "core:math"
+import "core:log"
 
 //TASK(20260220-205008-328-n6-902): handle textures
 
@@ -15,11 +16,11 @@ RAYRES:=3
 
 FOV::math.PI/2
 
-MAX_REACH :: 4
+MAX_REACH :: 5
 
-INTERACT_FOV :: math.PI/6
+INTERACT_FOV :: math.PI/8
 
-MAX_INT_OFFSET:: 2
+MAX_INT_OFFSET:: 3
 
 Info :: struct {
     dist: f32,

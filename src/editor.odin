@@ -1,6 +1,7 @@
 package main
 import mu "vendor:microui"
 import rl "vendor:raylib"
+import lua "vendor:lua/5.4"
 import "rlmu"
 
 import "core:log"
@@ -50,6 +51,28 @@ load_file_path::proc(allocator:=context.allocator) -> Maybe(string) {
         filter_count = len(filters)
     }
     result := nfd.OpenDialogU8_With(&path, &args)
+    switch result {
+    case .Okay: {
+        defer nfd.FreePathU8(path)
+        s, e := strings.clone_from_cstring(path) 
+        log.assertf(e==nil, "string err %s", e)
+        return s
+    }
+case .Cancel:
+    return nil
+case .Error: 
+    return nil
+    }
+    return nil
+}
+dir_file_path::proc(allocator:=context.allocator) -> Maybe(string) {
+    nfd.Init()
+    defer nfd.Quit()
+    path: cstring
+    args := nfd.Pick_Folder_Args {
+        
+    }
+    result := nfd.PickFolderU8_With(&path, &args)
     switch result {
     case .Okay: {
         defer nfd.FreePathU8(path)
@@ -216,7 +239,7 @@ remove_sector::proc(idx: int, world: ^engine.World) ->bool {
     return true
 }
 
-editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.Player) {
+editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.Player, state: ^^lua.State) {
     using rl
     if IsKeyPressed(.ONE) {
         line_maker_type = .NONE
@@ -242,10 +265,18 @@ editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.
         }
     }
     if IsKeyPressed(.L) && IsKeyDown(.LEFT_CONTROL) {
-        s:=load_file_path()
-        if s != nil {
-            defer delete(s.?)
-            engine.load_world(world, s.?, player)
+        if IsKeyDown(.LEFT_SHIFT) {
+            s:=dir_file_path()
+            if s != nil {
+                defer delete(s.?)
+                engine.load_map(world, s.?, player, state)
+            }
+        } else {
+            s:=load_file_path()
+            if s != nil {
+                defer delete(s.?)
+                engine.load_world(world, s.?, player)
+            }
         }
     }
     if IsKeyPressed(.ESCAPE) {
@@ -290,7 +321,7 @@ editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.
             remove_line(selectl, world) 
             selectl = {nil, nil}
         }
-        if IsKeyPressed(.L) && line_maker_type == .NONE {
+        if IsKeyPressed(.L) && line_maker_type == .NONE && !IsKeyDown(.LEFT_CONTROL) {
             if IsKeyDown(.LEFT_SHIFT) || IsKeyDown(.RIGHT_SHIFT) {//add line to pre-existing points
                 line_maker_type = .POINT
                 line_maker_point = -1
@@ -514,12 +545,12 @@ draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
 
 selectd:=-1
 
-draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: bool, player: ^engine.Player) {
+draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: bool, player: ^engine.Player, state: ^^lua.State) {
     using rl
     hoverp = nil
     hoverl = false
     if focus {
-        editor_controls(width, height, world, player)
+        editor_controls(width, height, world, player, state)
     }
     ClearBackground(BLACK)
     i:=0
@@ -627,40 +658,39 @@ editor_texture_width:i32 = 0
 editor_texture_height:i32 = 0
 editor_texture:rl.RenderTexture
 
-draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player) {
+draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player, state: ^^lua.State) {
     window_width:=rl.GetRenderWidth()
     window_height:=rl.GetRenderHeight()
     if mu.window(ctx, "Editor", mu.Rect{window_width/2-700/2, window_height/2-500/2, 700, 500}) {
-        mu.layout_row(ctx, { -1 }, -25)
+        mu.layout_row(ctx, { -1 }, -1)
 
-        mu.begin_panel(ctx, "Editor Panel")
-        width:=mu.get_current_container(ctx).rect.w
-        height:=mu.get_current_container(ctx).rect.h
-        if editor_texture_width != width || editor_texture_height != height {
+        text:=mu.layout_next(ctx)
+        if editor_texture_width != text.w|| editor_texture_height != text.h{
             if editor_texture_width != 0 {
                 rl.UnloadRenderTexture(editor_texture)
             }
-            editor_texture_height = height
-            editor_texture_width = width
-            editor_texture=rl.LoadRenderTexture(width, height)
+            editor_texture_height = text.h 
+            editor_texture_width = text.w 
+            editor_texture=rl.LoadRenderTexture(text.w, text.h)
         }
-        text:=rlmu.draw_texture(ctx, &editor_texture.texture)
+        mu.layout_set_next(ctx, text, false)
+        rlmu.draw_texture(ctx, &editor_texture.texture)
         x:=text.x
         y:=text.y
-        mu.end_panel(ctx)
 
         rl.BeginTextureMode(editor_texture)
         rl.SetMouseOffset(-x, -y)
         draw_editor_internals(
             world, 
-            width,
-            height,
+            text.w,
+            text.h,
             ctx.hover_root == mu.get_current_container(ctx) &&
             rl.GetMouseX()>=0 && 
-            rl.GetMouseX()<=width && 
+            rl.GetMouseX()<=text.w&& 
             rl.GetMouseY()>=0 && 
-            rl.GetMouseY()<=height, 
-            player
+            rl.GetMouseY()<=text.h, 
+            player,
+            state
         )
         rl.SetMouseOffset(0, 0)
         rl.EndTextureMode()
@@ -946,7 +976,7 @@ draw_player_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
 
 hoverld := -1
 
-draw_decal_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World) {
+draw_decal_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World, state: ^lua.State) {
     if mode != .Decal {
         return
     }
@@ -968,6 +998,7 @@ draw_decal_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Worl
         }
         mu.layout_next(ctx)
         if .SUBMIT in mu.button(ctx, "remove") {
+            engine.freeref(state, world.decals[selectd].on_interact)
             ordered_remove(&world.decals, selectd)
         }
         mu.end_panel(ctx)
@@ -1017,13 +1048,13 @@ line_part_dropdown :: proc(ctx: ^mu.Context, label: string, button_label: ^engin
     }
 }
 
-draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player) {
+draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player, state: ^^lua.State) {
     if !render^ {
         return
     }
-    draw_editor_window(ctx, render, has_focus, world, player)
+    draw_editor_window(ctx, render, has_focus, world, player, state)
     draw_line_window(ctx, has_focus, world)
     draw_sector_window(ctx, has_focus, world)
     draw_player_window(ctx, has_focus, world)
-    draw_decal_window(ctx, has_focus, world)
+    draw_decal_window(ctx, has_focus, world, state^)
 }

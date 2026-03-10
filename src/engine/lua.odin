@@ -4,6 +4,8 @@ import "base:runtime"
 import "core:c"
 import "core:strings"
 import "core:log"
+import "core:os/os2"
+import "core:path/filepath"
 
 lua_allocator :: proc "c" (ud: rawptr, ptr: rawptr, osize, nsize: c.size_t) -> (buf: rawptr) {
     old_size := int(osize)
@@ -124,8 +126,9 @@ get_decal::proc(state: ^lua.State, decal: ^Decal) {
             return 0
         }
         if lua.isfunction(state, 2) {
-            if decal.on_interact != nil {
-                lua.L_unref(state, lua.REGISTRYINDEX, decal.on_interact.?)
+            ref, ok := decal.on_interact.?
+            if ok {
+                lua.L_unref(state, lua.REGISTRYINDEX, ref)
             }
             decal.on_interact = lua.L_ref(state, lua.REGISTRYINDEX)
         } else {
@@ -133,6 +136,31 @@ get_decal::proc(state: ^lua.State, decal: ^Decal) {
         }
         return 0 
     }, "set_interact")
+    add_function(state, proc"c"(state: ^lua.State) -> c.int{
+        context=runtime.default_context()
+        context.logger = logger 
+        decal:=get_check(state, Decal, "DecalMeta") 
+        if decal== nil{
+            log.error("expected Decal as first arg")
+            return 0
+        }
+        str:=strings.clone_to_cstring(decal.texture)
+        defer delete(str)
+        lua.pushstring(state, str)
+        return 1
+    }, "get_texture")
+    add_function(state, proc"c"(state: ^lua.State) -> c.int{
+        context=runtime.default_context()
+        context.logger = logger 
+        decal:=get_check(state, Decal, "DecalMeta") 
+        if decal== nil{
+            log.error("expected Decal as first arg")
+            return 0
+        }
+        texture :=cast(string) lua.L_checkstring(state, 2)
+        decal.texture = texture
+        return 1
+    }, "set_texture")
 
     lua.pushvalue(state, -1)
     lua.setfield(state, -2, "__index")
@@ -141,13 +169,22 @@ get_decal::proc(state: ^lua.State, decal: ^Decal) {
     lua.setmetatable(state, -2)
 }
 
-load_file :: proc(file: string, world: ^World, allocator:=context.allocator, loggerf:=context.logger) -> ^lua.State {
+load_file :: proc(file: string, world: ^World, dir: string, allocator:=context.allocator, loggerf:=context.logger) -> ^lua.State {
     logger = loggerf
     _ctx = context
     str:=strings.clone_to_cstring(file, allocator)
     defer delete(str)
     state:=lua.newstate(lua_allocator, &_ctx)
     lua.L_openlibs(state)
+
+    path, error :=os2.get_executable_directory(context.allocator)
+    defer delete(path)
+    npath:=filepath.dir(path)
+    defer delete(npath)
+    nnpath:=filepath.join({npath, "libs"}) 
+    defer delete(nnpath)
+    add_lua_path(state, nnpath)
+    add_lua_path(state, dir)
 
     worldp:= (^^World)(lua.newuserdata(state, size_of(^World)))
     worldp^ = world
@@ -273,10 +310,52 @@ update_script :: proc(state: ^lua.State, dt: f32) {
     }
 }
 
-close :: proc(state: ^lua.State) {
+add_lua_path :: proc(state: ^lua.State, dir: string) {
+    lua.getglobal(state, "package")
+    lua.getfield(state, -1, "path")
+    old_path := lua.tostring(state, -1)
+    lua.pop(state, 1)
+
+    opath := strings.clone_from_cstring(old_path)
+    defer delete(opath)
+    p1:=filepath.join({dir, "?.lua"})
+    defer delete(p1)
+    p2:=filepath.join({dir, "?", "init.lua"})
+    defer delete(p2)
+    new_path := strings.join({opath, ";", p2, ";", p1}, "")
+    defer delete(new_path)
+    npath := strings.clone_to_cstring(new_path)
+    defer delete(npath)
+    lua.pushstring(state, npath)
+    lua.setfield(state, -2, "path")
+    lua.pop(state, 1)
+}
+
+close :: proc(state: ^lua.State, world: ^World) {
     for i in update_fn {
         lua.L_unref(state, lua.REGISTRYINDEX, i)
+    }
+    for i in 0..<len(world.decals) {
+        ref, ok := world.decals[i].on_interact.?
+        world.decals[i].on_interact = nil
+        if ok {
+            lua.L_unref(state, lua.REGISTRYINDEX, ref)
+        }
     }
     delete(update_fn)
     lua.close(state)
 }
+
+freeref_def :: proc(state: ^lua.State, ref: c.int) {
+    lua.L_unref(state, lua.REGISTRYINDEX, ref)
+}
+
+freeref_maybe:: proc(state: ^lua.State, ref: Maybe(c.int)) {
+    if ref == nil {
+        return
+    }
+    lua.L_unref(state, lua.REGISTRYINDEX, ref.?)
+}
+
+freeref::proc{freeref_def, freeref_maybe}
+
