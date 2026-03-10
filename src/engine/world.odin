@@ -2,6 +2,7 @@ package engine;
 
 import rl "vendor:raylib"
 import "core:math"
+import "core:c"
 
 WallTexture :: struct {
     top,
@@ -27,6 +28,22 @@ Line :: struct {
     tag: u16,
 }
 
+LinePart :: enum {
+    Top,
+    Middle,
+    Bottom,
+}
+
+Decal :: struct {
+    offset: Vec2,
+    wall: int,
+    on_back: bool,
+    on_interact: Maybe(c.int) `cbor:"-"`,
+    texture: string,
+    part: LinePart,
+    tag: u16,
+}
+
 Sector :: struct {
     floor: f32,
     height: f32,
@@ -39,6 +56,7 @@ World :: struct {
     lines: [dynamic]Line,
     points: [dynamic]Vec2,
     sectors: [dynamic]Sector,
+    decals: [dynamic]Decal,
     player_start: Vec2,
     player_start_rot: int,
 }
@@ -48,12 +66,14 @@ Player :: struct {
     rot: f32,
     sector: int,
     height: f32,
+    decal: int,
 }
 
 free_world :: proc(world: ^World) {
     delete(world.lines)
     delete(world.points)
     delete(world.sectors)
+    delete(world.decals)
 }
 
 CollisionInfo :: struct {

@@ -15,6 +15,12 @@ RAYRES:=3
 
 FOV::math.PI/2
 
+MAX_REACH :: 4
+
+INTERACT_FOV :: math.PI/6
+
+MAX_INT_OFFSET:: 2
+
 Info :: struct {
     dist: f32,
     height: f32,
@@ -29,6 +35,8 @@ Info :: struct {
     floor_texture: EngineTexture,
     ceil_texture: EngineTexture,
     sector: int,
+    wall_index: int,
+    is_back:bool,
 }
 
 ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) {
@@ -37,6 +45,7 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
         dist=RAYLEN+1,
     }
     ray_end:=rotate_around(ray_start, ray_start+Vec2{0, -RAYLEN}, angle)
+    idx:=0
     for line in world.lines {
         p1:=world.points[line.p1]
         p2:=world.points[line.p2]
@@ -75,6 +84,8 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
                         floor_texture=sector.floor_text,
                         ceil_texture=sector.ceil_text,
                         sector=sector_idx,
+                        wall_index=idx,
+                        is_back = isback,
                     }
                 } else {
                     info = Info{
@@ -85,11 +96,14 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
                         point=collision,
                         p1=isback?p2:p1,
                         p2=isback?p1:p2,
-                        sector=sector_idx
+                        sector=sector_idx,
+                        wall_index=idx,
+                        is_back=isback,
                     }
                 }
             }
         }
+        idx+=1
     }
     if info.dist == RAYLEN+1 {
         return false, info
@@ -103,6 +117,12 @@ draw_rect :: proc(
     wall_dist,
     wall_height: f32,
     p1, p2, hit_point: Vec2,
+    wall_idx: int,
+    is_back: bool,
+    world: ^World,
+    part: LinePart,
+    can_int: bool,
+    decal_player: ^int,
 ) {
     using rl;
 
@@ -117,7 +137,7 @@ draw_rect :: proc(
     wall_len := dist(p1, p2)
 
     hit_vec := hit_point - p1
-
+    wall_hit_dist := dot(hit_vec, wall_vec) / wall_len
 
     u := (dot(hit_vec, wall_vec)+wall_texture.offset.x) / wall_len_sq
     u *= wall_len / tex_data.width
@@ -155,6 +175,56 @@ draw_rect :: proc(
         0,
         rl.WHITE
     )
+    //draw decals
+    //TASK(20260309-221524-255-n6-932): make decals cut off on the floor and ceiling
+    for idx in 0..<len(world.decals) {
+        decal := world.decals[idx]
+        if decal.wall != wall_idx || decal.part != part || decal.on_back != is_back || decal.texture == "" {
+            continue
+        }
+        decal_tex:=get_texture(decal.texture)
+        decal_left  := decal.offset.x
+        decal_right := decal.offset.x + decal_tex.width
+        if wall_hit_dist < decal_left || wall_hit_dist > decal_right {
+            continue
+        }
+        local_x := wall_hit_dist - decal_left
+        du := local_x / decal_tex.width
+
+        if can_int && wall_dist <= MAX_REACH {
+             if decal_player^ == -1 {
+                 //TASK(20260309-222722-284-n6-229): make player y effect this
+                 decal_player^ = idx
+             }         
+        }
+        tex_x := i32(du * f32(decal_tex.texture.width))
+        world_top := decal.offset.y
+        world_bottom := world_top + decal_tex.height
+        top := f32(y) + (world_top / wall_height) * f32(height)
+        bottom := f32(y) + (world_bottom / wall_height) * f32(height)
+        src := rl.Rectangle{
+            x = f32(tex_x),
+            y = 0,
+            width = 1,
+            height = f32(decal_tex.texture.height),
+        }
+
+        dest := rl.Rectangle{
+            x = f32(x),
+            y = top,
+            width = f32(width),
+            height = bottom - top,
+        }
+
+        rl.DrawTexturePro(
+            decal_tex.texture,
+            src,
+            dest,
+            rl.Vector2{0,0},
+            0,
+            rl.WHITE,
+        )
+    }
 }
 
 
@@ -287,6 +357,8 @@ render_ray :: proc(world: ^World,
     i: int,
     width: f32,
     angle: f32,
+    can_int: bool,
+    decal_player: ^int,
     screen_center_y: f32,
     projection_plane_dist: f32,
     ray_start:Vec2,
@@ -333,6 +405,8 @@ render_ray :: proc(world: ^World,
             i, 
             width, 
             angle, 
+            can_int,
+            decal_player,
             screen_center_y, 
             projection_plane_dist, 
             info.point+rotate(Vec2{0, -epsilon}, angle), 
@@ -357,6 +431,12 @@ render_ray :: proc(world: ^World,
                     info.p1,
                     info.p2,
                     info.point,
+                    info.wall_index,
+                    info.is_back,
+                    world,
+                    .Top,
+                    can_int,
+                    decal_player,
                 )
                 height -= ceiling_y-iceiling_y
                 wall_top=bottom
@@ -375,6 +455,12 @@ render_ray :: proc(world: ^World,
                     info.p1,
                     info.p2,
                     info.point,
+                    info.wall_index,
+                    info.is_back,
+                    world,
+                    .Bottom,
+                    can_int,
+                    decal_player,
                 )
                 wall_bottom=top
                 height-=iinfo.floor-info.floor
@@ -416,6 +502,12 @@ render_ray :: proc(world: ^World,
         info.p1,
         info.p2,
         info.point,
+        info.wall_index, 
+        info.is_back,
+        world,
+        .Middle,
+        can_int,
+        decal_player
     )
     return collide, info
 }
@@ -445,13 +537,24 @@ render_world :: proc(world: ^World, player: ^Player) {
     width:=f32(RAYRES)
     projection_plane_dist := f32(GetRenderWidth()/2) / math.tan_f32(FOV/2)
     screen_center_y := f32(GetRenderHeight())/2
+
+    min := player.rot - INTERACT_FOV/2
+    max := player.rot + INTERACT_FOV/2
+    player.decal = -1
+
     for i := 0; f32(i) < raynum; i+=1 {
         angle := player.rot - FOV/2 + f32(i)*delta_angle
-        collide, info := render_ray(world,
+
+        can_int:=min<=angle&&angle<=max
+
+        collide, info := render_ray(
+            world,
             player,
             i,
             width,
             angle,
+            can_int,
+            &player.decal,
             screen_center_y,
             projection_plane_dist,
             player.pos.xz,

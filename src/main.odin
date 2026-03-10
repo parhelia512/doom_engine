@@ -43,7 +43,7 @@ WINDOW_FOCUS:=false
 
 //TASK(20260224-130850-786-n6-230): give the player a width
 
-controls :: proc(player: ^engine.Player, world: ^engine.World) {
+controls :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State) {
     using engine
     using rl
     move : Vec2
@@ -67,6 +67,11 @@ controls :: proc(player: ^engine.Player, world: ^engine.World) {
         }
         if IsKeyDown(.RIGHT) {
             rot += 1 
+        }
+        if IsKeyPressed(.E) {
+            if player.decal != -1 && !EDITOR {
+                engine.call_decal(state, world, player.decal) 
+            }
         }
     }
     if IsKeyPressed(.F3) {
@@ -208,7 +213,7 @@ move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Ve
 
 
 update :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State) {
-    controls(player, world) 
+    controls(player, world, state) 
     if !EDITOR {
         engine.update_script(state, rl.GetFrameTime())
     }
@@ -227,8 +232,11 @@ get_textures :: proc() {
     set_texture("brns1", "./assets/textures/brnsmal1.png", 10, 10)
     set_texture("brns2", "./assets/textures/brnsmal2.png", 10, 10)
 
-
     set_texture("door", "./assets/textures/bigdoor1.png", 10, 10)
+
+    set_texture("buttonoff", "./assets/switches/doublegreenred-off.png", 2.636719, 2.636719)
+    set_texture("buttonon", "./assets/switches/doublegreenred-on.png", 2.636719, 2.636719)
+
 }
 
 draw_ui :: proc(world: ^engine.World, player: ^engine.Player) {

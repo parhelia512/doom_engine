@@ -25,7 +25,6 @@ lua_allocator :: proc "c" (ud: rawptr, ptr: rawptr, osize, nsize: c.size_t) -> (
 
 update_fn:[dynamic]c.int
 
-import "core:fmt"
 add_function :: proc(state: ^lua.State, p: lua.CFunction, name: cstring) {
     lua.pushcfunction(state, p)
     lua.setfield(state, -2, name)
@@ -44,21 +43,101 @@ get_sector::proc(state: ^lua.State, sector: ^Sector) {
     add_function(state, proc"c"(state: ^lua.State) -> c.int{
         context=runtime.default_context()
         context.logger = logger 
-        sector := (cast(^^Sector)lua.touserdata(state, 1))^
+        sector :=get_check(state, Sector, "SectorMeta") 
+        if sector == nil {
+            log.error("expected Sector as first arg")
+            return 0
+        }
         lua.pushnumber(state, lua.Number(sector.height))
         return 1 
     }, "get_height")
     add_function(state, proc"c"(state: ^lua.State) -> c.int{
         context=runtime.default_context()
         context.logger = logger 
-        sector := (cast(^^Sector)lua.touserdata(state, 1))^
+        sector :=get_check(state, Sector, "SectorMeta") 
+        if sector == nil{
+            log.error("expected Sector as first arg")
+            return 0
+        }
         height :=cast(f32) lua.L_checknumber(state, 2)
         sector.height = height
         return 0 
     }, "set_height")
+    add_function(state, proc"c"(state: ^lua.State) -> c.int{
+        context=runtime.default_context()
+        context.logger = logger 
+        sector :=get_check(state, Sector, "SectorMeta") 
+        if sector == nil{
+            log.error("expected Sector as first arg")
+            return 0
+        }
+        lua.pushnumber(state, lua.Number(sector.floor))
+        return 1 
+    }, "get_floor")
+    add_function(state, proc"c"(state: ^lua.State) -> c.int{
+        context=runtime.default_context()
+        context.logger = logger 
+        sector :=get_check(state, Sector, "SectorMeta") 
+        if sector == nil{
+            log.error("expected Sector as first arg")
+            return 0
+        }
+        floor :=cast(f32) lua.L_checknumber(state, 2)
+        sector.floor = floor
+        return 0 
+    }, "set_floor")
 
     lua.pushvalue(state, -1)
     lua.setfield(state, -2, "__index")
+    lua.pushstring(state, "SectorMeta")
+    lua.setfield(state, -2, "__name")    
+    lua.setmetatable(state, -2)
+}
+
+get_check::proc(state: ^lua.State, $T:typeid, userdata:cstring)->^T {
+    if !lua.isuserdata(state, 1) {
+        return nil
+    }
+    if lua.getmetatable(state, 1) != 0 {
+        lua.getfield(state, -1, "__name")
+        name := lua.tostring(state, -1) 
+        lua.pop(state, 2)
+        if name == userdata  {
+            return (cast(^^T)lua.touserdata(state, 1))^
+        }
+    }
+    return nil
+}
+
+get_decal::proc(state: ^lua.State, decal: ^Decal) {
+    decalp:= (^^Decal)(lua.newuserdata(state, size_of(^Decal)))
+    decalp^ = decal 
+
+    lua.L_newmetatable(state, "DecalMeta")
+
+    add_function(state, proc"c"(state: ^lua.State) -> c.int{
+        context=runtime.default_context()
+        context.logger = logger 
+        decal:=get_check(state, Decal, "DecalMeta") 
+        if decal== nil{
+            log.error("expected Decal as first arg")
+            return 0
+        }
+        if lua.isfunction(state, 2) {
+            if decal.on_interact != nil {
+                lua.L_unref(state, lua.REGISTRYINDEX, decal.on_interact.?)
+            }
+            decal.on_interact = lua.L_ref(state, lua.REGISTRYINDEX)
+        } else {
+            log.error("expected function")
+        }
+        return 0 
+    }, "set_interact")
+
+    lua.pushvalue(state, -1)
+    lua.setfield(state, -2, "__index")
+    lua.pushstring(state, "DecalMeta")
+    lua.setfield(state, -2, "__name")    
     lua.setmetatable(state, -2)
 }
 
@@ -79,7 +158,11 @@ load_file :: proc(file: string, world: ^World, allocator:=context.allocator, log
     add_function(state, proc"c"(state: ^lua.State) -> c.int{
         context=runtime.default_context()
         context.logger = logger 
-        world := (cast(^^World)lua.touserdata(state, 1))^
+        world:=get_check(state, World, "WorldMeta") 
+        if world== nil{
+            log.error("expected World as first arg")
+            return 0
+        }
         tag :=cast(u16) lua.L_checkinteger(state, 2)
         lua.newtable(state) 
         tablei:=1
@@ -88,6 +171,7 @@ load_file :: proc(file: string, world: ^World, allocator:=context.allocator, log
             if sector.tag == tag {
                 get_sector(state, sector)
                 lua.rawseti(state, -2, (lua.Integer)(tablei))
+                tablei+=1
             }
         }
         return 1 
@@ -95,6 +179,32 @@ load_file :: proc(file: string, world: ^World, allocator:=context.allocator, log
     add_function(state, proc"c"(state: ^lua.State) -> c.int{
         context=runtime.default_context()
         context.logger = logger 
+        world:=get_check(state, World, "WorldMeta") 
+        if world== nil{
+            log.error("expected World as first arg")
+            return 0
+        }
+        tag :=cast(u16) lua.L_checkinteger(state, 2)
+        lua.newtable(state) 
+        tablei:=1
+        for i in 0..<len(world.decals) {
+            decal:=&world.decals[i]
+            if decal.tag == tag {
+                get_decal(state, decal)
+                lua.rawseti(state, -2, (lua.Integer)(tablei))
+                tablei+=1
+            }
+        }
+        return 1 
+    }, "get_decals")
+    add_function(state, proc"c"(state: ^lua.State) -> c.int{
+        context=runtime.default_context()
+        context.logger = logger 
+        world:=get_check(state, World, "WorldMeta") 
+        if world== nil{
+            log.error("expected World as first arg")
+            return 0
+        }
         if lua.isfunction(state, 2) {
             append(&update_fn, lua.L_ref(state, lua.REGISTRYINDEX))
         } else {
@@ -105,6 +215,8 @@ load_file :: proc(file: string, world: ^World, allocator:=context.allocator, log
 
     lua.pushvalue(state, -1)
     lua.setfield(state, -2, "__index")
+    lua.pushstring(state, "WorldMeta")
+    lua.setfield(state, -2, "__name")    
     lua.setmetatable(state, -2)
 
     lua.setglobal(state, "world")
@@ -114,6 +226,23 @@ load_file :: proc(file: string, world: ^World, allocator:=context.allocator, log
         lua.pop(state, -1)
     }
     return state
+}
+
+call_decal :: proc(state: ^lua.State, world: ^World, decal: int) {
+    if decal < 0 || decal >= len(world.decals) {
+        return
+    }
+    fn:=world.decals[decal].on_interact
+    if fn == nil {
+        return
+    }
+    lua.rawgeti(state, lua.REGISTRYINDEX, (lua.Integer)(fn.?))
+    if lua.pcall(state, 0, 1, 0) != 0 {
+        log.error(lua.tostring(state, -1))
+        lua.pop(state, -1)
+    } else {
+        lua.pop(state, -1)
+    }
 }
 
 update_script :: proc(state: ^lua.State, dt: f32) {

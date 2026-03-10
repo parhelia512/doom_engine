@@ -230,6 +230,10 @@ editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.
         line_maker_type = .NONE
         mode=MODE.Player
     }
+    if IsKeyPressed(.FOUR) {
+        line_maker_type = .NONE
+        mode=MODE.Decal
+    }
     if IsKeyPressed(.S) && IsKeyDown(.LEFT_CONTROL) {
         s:=create_file_path()
         if s != nil {
@@ -248,6 +252,7 @@ editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.
         line_maker_type = .NONE
     }
     switch mode {
+    case .Decal:
     case .Point:
         if (IsKeyPressed(.BACKSPACE) || IsKeyPressed(.DELETE)) && selectp != nil {
             remove_line(selectp, world) 
@@ -314,6 +319,7 @@ MODE::enum {
     Player,
     Point,
     Line,
+    Decal,
 }
 
 translate :: proc(v: engine.Vec2, width, height: i32) -> engine.Vec2 {
@@ -506,6 +512,8 @@ draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
     }
 }
 
+selectd:=-1
+
 draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: bool, player: ^engine.Player) {
     using rl
     hoverp = nil
@@ -514,6 +522,7 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
         editor_controls(width, height, world, player)
     }
     ClearBackground(BLACK)
+    i:=0
     for line in world.lines {
         op1:=&world.points[line.p1]
         op2:=&world.points[line.p2]
@@ -529,19 +538,32 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
             cline = GREEN
         }
         switch mode {
+        case .Decal:
+            selectl = {nil, nil}
+            dragl = {nil, nil}
+            dragp = nil
+            selectp = nil
+            if hoverld == i {
+                cp1 = GREEN
+                cp2 = GREEN
+                cline = GREEN
+            }
         case .Point:
             selectl = {nil, nil}
             dragl = {nil, nil}
+            selectd = -1
             handle_collide_point(p1, p2, &cp1, &cp2, &cline, op1, op2, focus)
         case .Line:
             dragp = nil
             selectp = nil
+            selectd = -1
             handle_collide_line(p1, p2, &cp1, &cp2, &cline, op1, op2, focus)
         case .Player:
             selectl = {nil, nil}
             dragl = {nil, nil}
             dragp = nil
             selectp = nil
+            selectd = -1
             dp:=translate(world.player_start, width, height)
             DrawCircleV(dp, 2, PURPLE)
             DrawLineV(dp, dp+engine.rotate(engine.Vec2{0, -10}, math.to_radians_f32(f32(world.player_start_rot))), PURPLE)
@@ -559,6 +581,7 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
         normal = normal / math.sqrt(normal.x*normal.x + normal.y*normal.y) * f32(length)
         mid := (p1 + p2) / 2
         DrawLineV(mid, mid + normal, RED)
+        i+=1
     }
     hovers = -1
     switch line_maker_type {
@@ -574,6 +597,7 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
         return
     }
     switch mode {
+    case .Decal:
     case .Point:
         if IsMouseButtonUp(.LEFT) {
             dragp = nil
@@ -637,7 +661,7 @@ draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^en
             rl.GetMouseY()>=0 && 
             rl.GetMouseY()<=height, 
             player
-            )
+        )
         rl.SetMouseOffset(0, 0)
         rl.EndTextureMode()
         has_focus^ =ctx.hover_root!=nil||has_focus^
@@ -920,6 +944,79 @@ draw_player_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
     }
 }
 
+hoverld := -1
+
+draw_decal_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World) {
+    if mode != .Decal {
+        return
+    }
+    window_width:=rl.GetRenderWidth()
+    window_height:=rl.GetRenderHeight()
+    if mu.window(ctx, "Decal Editor", mu.Rect{window_width/2-700/2, window_height/2-500/2, 700, 500}, {.NO_CLOSE}) {
+        mu.layout_row(ctx, {-1}, 25)
+        slide_int(ctx, &selectd, 1, "Decal: %.0f", 0, len(world.decals)-1)
+        mu.begin_panel(ctx, "buttons")
+        w:=mu.get_current_container(ctx).rect.w/2-10
+        mu.layout_row(ctx, {w,1,w}, -1)
+        selectd = math.clamp(selectd, 0, len(world.decals)-1)
+        if .SUBMIT in mu.button(ctx, "add") {
+            selectd = len(world.decals)
+            append(&world.decals, engine.Decal{
+                wall=-1,
+                part=.Middle,
+            })
+        }
+        mu.layout_next(ctx)
+        if .SUBMIT in mu.button(ctx, "remove") {
+            ordered_remove(&world.decals, selectd)
+        }
+        mu.end_panel(ctx)
+        selectd = math.clamp(selectd, 0, len(world.decals)-1)
+        hoverld=-1
+        if selectd < len(world.decals) && selectd>=0{
+            if hover_begin(ctx, "line") {
+                hoverld = world.decals[selectd].wall
+            }
+            mu.layout_row(ctx, {-1}, 0)
+            slide_int(ctx, &world.decals[selectd].wall, 1, "wall: %.0f", -1, len(world.lines)-1)
+            hover_end(ctx)
+            mu.number(ctx, &world.decals[selectd].offset.x, .5, "offset x: %.1f")
+            mu.number(ctx, &world.decals[selectd].offset.y, .5, "offset y: %.1f")
+            number_u16(ctx, &world.decals[selectd].tag, 1, 0, 65535, "tag: %.0f")
+            if ctx.hover_root == mu.get_current_container(ctx) {
+                mu.checkbox(ctx, "on back", &world.decals[selectd].on_back)
+            } else {
+                p:=world.decals[selectd].on_back
+                mu.checkbox(ctx, "on back", &p)
+            }
+            texture_dropdown(ctx, "Decal Texture", &world.decals[selectd].texture)
+            line_part_dropdown(ctx, "Line Part", &world.decals[selectd].part)
+        } 
+    }
+}
+
+line_part_dropdown :: proc(ctx: ^mu.Context, label: string, button_label: ^engine.LinePart) {
+    if mu.popup(ctx, label) {
+        for part, _ in engine.LinePart {
+            sb:=strings.builder_make()
+            fmt.sbprint(&sb, part)
+            string:=strings.to_string(sb)
+            defer delete(string)
+            if .SUBMIT in mu.button(ctx, string) {
+                button_label^=part
+                mu.get_current_container(ctx).open = false
+            }
+        }
+    }
+    sb:=strings.builder_make()
+    fmt.sbprint(&sb, button_label^)
+    string:=strings.to_string(sb)
+    defer delete(string)
+    if .SUBMIT in mu.button(ctx, string)  {
+        mu.open_popup(ctx, label)
+    }
+}
+
 draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player) {
     if !render^ {
         return
@@ -928,4 +1025,5 @@ draw_editor:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.Wo
     draw_line_window(ctx, has_focus, world)
     draw_sector_window(ctx, has_focus, world)
     draw_player_window(ctx, has_focus, world)
+    draw_decal_window(ctx, has_focus, world)
 }

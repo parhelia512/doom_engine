@@ -18,3 +18,5 @@
 - [ ] make collision detection less janky
 - [X] add sector mode
 - [X] fix bug in editor
+- [ ] make decals cut off on the floor and ceiling
+- [ ] make player y effect this
