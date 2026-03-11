@@ -284,6 +284,8 @@ main :: proc() {
     InitWindow(WIDTH, HEIGHT, TITLE)
     if len(os.args) > 1 {
         load_map_pack(&world, os.args[1], &player, &state, "map01")
+    } else {
+        gen_default(10, 10)
     }
 
     defer if state != nil {close(state, &world)}

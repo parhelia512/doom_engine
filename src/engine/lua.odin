@@ -185,6 +185,11 @@ load_file :: proc(file: string, world: ^World, dir: string, allocator:=context.a
     defer delete(nnpath)
     add_lua_path(state, nnpath)
     add_lua_path(state, dir)
+    if pack != nil {
+        path:=filepath.join({pack.?, "libs"}) 
+        defer delete(npath)
+        add_lua_path(state, path)
+    }
 
     worldp:= (^^World)(lua.newuserdata(state, size_of(^World)))
     worldp^ = world
@@ -269,11 +274,11 @@ call_decal :: proc(state: ^lua.State, world: ^World, decal: int) {
     if decal < 0 || decal >= len(world.decals) {
         return
     }
-    fn:=world.decals[decal].on_interact
-    if fn == nil {
+    fn, ok:=world.decals[decal].on_interact.?
+    if !ok {
         return
     }
-    lua.rawgeti(state, lua.REGISTRYINDEX, (lua.Integer)(fn.?))
+    lua.rawgeti(state, lua.REGISTRYINDEX, (lua.Integer)(fn))
     if lua.pcall(state, 0, 1, 0) != 0 {
         log.error(lua.tostring(state, -1))
         lua.pop(state, -1)

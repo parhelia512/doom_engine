@@ -271,6 +271,12 @@ editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.
                 defer delete(s.?)
                 engine.load_map(world, s.?, player, state)
             }
+        } else if IsKeyDown(.LEFT_ALT) {
+            s:=dir_file_path()
+            if s != nil {
+                defer delete(s.?)
+                engine.load_map_pack(world, s.?, player, state, "map01")
+            }
         } else {
             s:=load_file_path()
             if s != nil {
