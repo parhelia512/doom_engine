@@ -50,6 +50,7 @@ Sector :: struct {
     floor_text: EngineTexture,
     ceil_text: EngineTexture,
     tag: u16,
+    tint: HSV,
 }
 
 World :: struct {

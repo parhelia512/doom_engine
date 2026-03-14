@@ -86,6 +86,7 @@ Command_Image :: struct {
 	rect:    mu.Rect,
 	color:   mu.Color, //ignored
     text: ^rl.Texture,
+    clip: mu.Rect,
 }
 
 draw_texture :: proc(ctx: ^mu.Context, texture: ^rl.Texture) -> mu.Rect {
@@ -95,6 +96,7 @@ draw_texture :: proc(ctx: ^mu.Context, texture: ^rl.Texture) -> mu.Rect {
     command:=cast(^Command_Image)mu.push_command(ctx, mu.Command_Rect, size_of(Command_Image)-size_of(mu.Command_Rect))
     command.rect = rect
     command.text = texture
+    command.clip = mu.get_clip_rect(ctx)
     return rect
 }
 
@@ -131,6 +133,7 @@ end :: proc(state := global_state) {
             case ^mu.Command_Rect:
                 if cmd.size == size_of(Command_Image) {
                     n:=cast(^Command_Image)cmd
+                    rl.BeginScissorMode(n.clip.x, n.clip.y, n.clip.w, n.clip.h)
                     rl.DrawTexturePro(n.text^, rl.Rectangle{
                         0, 0, f32(n.text.width), -f32(n.text.height)
                     }, rl.Rectangle {
@@ -139,6 +142,7 @@ end :: proc(state := global_state) {
                         f32(n.rect.w),
                         f32(n.rect.h),
                     }, 0, 0, rl.WHITE)
+                    rl.EndScissorMode()
                 } else {
                     rl.DrawRectangle(cmd.rect.x, cmd.rect.y, cmd.rect.w, cmd.rect.h, transmute(rl.Color)cmd.color)
                 }

@@ -57,7 +57,7 @@ set_texture::proc(name, file:string, width, height: f32) {
     defer delete(str)
     image := LoadImage(str)
     if image.data == nil {
-        log.error("failed to load image: %s", file)
+        log.errorf("failed to load image: %s", file)
         return
     }
     defer UnloadImage(image)
@@ -70,5 +70,5 @@ set_texture::proc(name, file:string, width, height: f32) {
         width=width,
         height=height,
     }
-    log.info("loaded image: %s", file)
+    log.infof("loaded image: %s", file)
 }

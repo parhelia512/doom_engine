@@ -70,7 +70,7 @@ dir_file_path::proc(allocator:=context.allocator) -> Maybe(string) {
     defer nfd.Quit()
     path: cstring
     args := nfd.Pick_Folder_Args {
-        
+
     }
     result := nfd.PickFolderU8_With(&path, &args)
     switch result {
@@ -664,6 +664,10 @@ editor_texture_width:i32 = 0
 editor_texture_height:i32 = 0
 editor_texture:rl.RenderTexture
 
+color_texture_width:i32 = 0
+color_texture_height:i32 = 0
+color_texture:rl.RenderTexture
+
 draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^engine.World, player: ^engine.Player, state: ^^lua.State) {
     window_width:=rl.GetRenderWidth()
     window_height:=rl.GetRenderHeight()
@@ -921,6 +925,7 @@ draw_line_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World
             })
         }
         number_u16(ctx, &line.tag, 1, 0, 65535, "tag: %.0f")
+        has_focus^ =ctx.hover_root!=nil||has_focus^
     } else {
         mu.get_container(ctx, "Line Editor").open=true
         selectl = {nil, nil}
@@ -943,6 +948,41 @@ draw_sector_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
     window_width:=rl.GetRenderWidth()
     window_height:=rl.GetRenderHeight()
     if mu.window(ctx, "Sectors Editor", mu.Rect{window_width/2-700/2, window_height/2-500/2, 700, 500}) {
+        mu.layout_row(ctx, {120, 5, 120}, 120)
+        text:=mu.layout_next(ctx)
+        if color_texture_width != text.w|| color_texture_height != text.h{
+            if color_texture_width != 0 {
+                rl.UnloadRenderTexture(color_texture)
+            }
+            color_texture_height = text.h 
+            color_texture_width = text.w 
+            color_texture=rl.LoadRenderTexture(text.w, text.h)
+        }
+        mu.layout_set_next(ctx, text, false)
+        rlmu.draw_texture(ctx, &color_texture.texture)
+        mu.layout_next(ctx)
+        mu.draw_rect(ctx, mu.layout_next(ctx), transmute(mu.Color)engine.hsv_to_color(sector.tint))
+        x:=text.x
+        y:=text.y
+
+        rl.BeginTextureMode(color_texture)
+        rl.ClearBackground(rl.BLACK)
+        rl.SetMouseOffset(-x, -y)
+        @(static)
+        data:engine.ColorPickerData
+        engine.color_picker(
+            &sector.tint,
+            {f32(text.w)/2, f32(text.h)/2},
+            50,
+            10,
+            &data,
+            ctx.hover_root == mu.get_current_container(ctx) &&
+            rl.GetMouseX()>=0 && 
+            rl.GetMouseX()<=text.w&& 
+            rl.GetMouseY()>=0 && 
+            rl.GetMouseY()<=text.h)
+        rl.SetMouseOffset(0, 0)
+        rl.EndTextureMode()
         mu.layout_row(ctx, {-1}, 0)
         if .ACTIVE in mu.treenode(ctx, "Texture") {
             if .ACTIVE in mu.treenode(ctx, "Ceiling") {
@@ -963,6 +1003,7 @@ draw_sector_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
             selects = -1
         }
         number_u16(ctx, &sector.tag, 1, 0, 65535, "tag: %.0f")
+        has_focus^ =ctx.hover_root!=nil||has_focus^
     } else {
         mu.get_container(ctx, "Sectors Editor").open=true
         selects = -1
@@ -977,6 +1018,7 @@ draw_player_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
     if mu.window(ctx, "Player Editor", mu.Rect{window_width/2-700/2, window_height/2-500/2, 700, 500}, {.NO_CLOSE}) {
         mu.layout_row(ctx, {-1}, 0)
         slide_int(ctx, &world.player_start_rot, 1, "rotation: %.0f", 0, 360)
+        has_focus^ =ctx.hover_root!=nil||has_focus^
     }
 }
 
@@ -1028,6 +1070,7 @@ draw_decal_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Worl
             }
             texture_dropdown(ctx, "Decal Texture", &world.decals[selectd].texture)
             line_part_dropdown(ctx, "Line Part", &world.decals[selectd].part)
+            has_focus^ =ctx.hover_root!=nil||has_focus^
         } 
     }
 }

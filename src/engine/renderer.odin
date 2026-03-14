@@ -38,6 +38,7 @@ Info :: struct {
     sector: int,
     wall_index: int,
     is_back:bool,
+    tint: HSV,
 }
 
 ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) {
@@ -87,12 +88,14 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
                         sector=sector_idx,
                         wall_index=idx,
                         is_back = isback,
+                        tint=sector.tint,
                     }
                 } else {
                     info = Info{
                         dist=d,
                         height=sector.height,
                         floor=sector.floor,
+                        tint=sector.tint,
                         is_portal=true,
                         point=collision,
                         p1=isback?p2:p1,
@@ -124,58 +127,59 @@ draw_rect :: proc(
     part: LinePart,
     can_int: bool,
     decal_player: ^int,
+    tint: HSV,
 ) {
     using rl;
 
-    if wall_texture.texture == "" {
-        return
-    }
-    tex_data := get_texture(wall_texture.texture)
-    tex := tex_data.texture
-
     wall_vec := p2 - p1
-    wall_len_sq := dot(wall_vec, wall_vec)
     wall_len := dist(p1, p2)
-
     hit_vec := hit_point - p1
     wall_hit_dist := dot(hit_vec, wall_vec) / wall_len
+    color:=hsv_to_color(tint)
+    if wall_texture.texture != "" {
+        tex_data := get_texture(wall_texture.texture)
+        tex := tex_data.texture
 
-    u := (dot(hit_vec, wall_vec)+wall_texture.offset.x) / wall_len_sq
-    u *= wall_len / tex_data.width
-    u = u - math.floor(u)
-    tex_x := i32(u * f32(tex.width))
+        wall_len_sq := dot(wall_vec, wall_vec)
 
-    v := wall_texture.offset.y / f32(tex.height)
-    v = v - math.floor(v)
-    tex_y := v * f32(tex.height)
-    scale := wall_height / tex_data.height
-    source_height := f32(tex.height) * scale
-    if wall_texture.anchor_bottom {
-        tex_y = f32(tex.height) - source_height - v * f32(tex.height)
+
+        u := (dot(hit_vec, wall_vec)+wall_texture.offset.x) / wall_len_sq
+        u *= wall_len / tex_data.width
+        u = u - math.floor(u)
+        tex_x := i32(u * f32(tex.width))
+
+        v := wall_texture.offset.y / f32(tex.height)
+        v = v - math.floor(v)
+        tex_y := v * f32(tex.height)
+        scale := wall_height / tex_data.height
+        source_height := f32(tex.height) * scale
+        if wall_texture.anchor_bottom {
+            tex_y = f32(tex.height) - source_height - v * f32(tex.height)
+        }
+
+        source := rl.Rectangle{
+            x = f32(tex_x),
+            y = tex_y,
+            width = 1,
+            height = source_height 
+        }
+
+        dest := rl.Rectangle{
+            x = f32(x),
+            y = f32(y),
+            width = f32(width),
+            height = f32(height)
+        }
+
+        rl.DrawTexturePro(
+            tex,
+            source,
+            dest,
+            {0, 0},
+            0,
+            color, 
+        )
     }
-
-    source := rl.Rectangle{
-        x = f32(tex_x),
-        y = tex_y,
-        width = 1,
-        height = source_height 
-    }
-
-    dest := rl.Rectangle{
-        x = f32(x),
-        y = f32(y),
-        width = f32(width),
-        height = f32(height)
-    }
-
-    rl.DrawTexturePro(
-        tex,
-        source,
-        dest,
-        rl.Vector2{0, 0},
-        0,
-        rl.WHITE
-    )
     //draw decals
     //TASK(20260309-221524-255-n6-932): make decals cut off on the floor and ceiling
     for idx in 0..<len(world.decals) {
@@ -193,10 +197,10 @@ draw_rect :: proc(
         du := local_x / decal_tex.width
 
         if can_int && wall_dist <= MAX_REACH {
-             if decal_player^ == -1 {
-                 //TASK(20260309-222722-284-n6-229): make player y effect this
-                 decal_player^ = idx
-             }         
+            if decal_player^ == -1 {
+                //TASK(20260309-222722-284-n6-229): make player y effect this
+                decal_player^ = idx
+            }         
         }
         tex_x := i32(du * f32(decal_tex.texture.width))
         world_top := decal.offset.y
@@ -221,9 +225,9 @@ draw_rect :: proc(
             decal_tex.texture,
             src,
             dest,
-            rl.Vector2{0,0},
+            {0,0},
             0,
-            rl.WHITE,
+            color,
         )
     }
 }
@@ -245,10 +249,12 @@ draw_floor :: proc(
     projection_plane_dist,
     floor_y: f32,
     floor_end: i32,
+    tint: HSV,
 ) {
     if texture.texture == "" {
         return
     }
+    color:=hsv_to_color(tint)
     using rl
 
     screen_width := GetRenderWidth()
@@ -267,22 +273,18 @@ draw_floor :: proc(
         row_dist := s * projection_plane_dist / (f32(py) - screen_center_y)
 
         camera_x := 2  * f32(x) / f32(screen_width) - 1 
-        camera_x2 := 2  * f32(x+width) / f32(screen_width) - 1 
 
         floor_world_x := row_dist * camera_x
-        floor_world_x2 := row_dist * camera_x2
         floor_world_y := row_dist
 
         floor_world_x+=vec.x
-        floor_world_x2+=vec.x
         floor_world_y+=vec.y
 
         world_x := floor_world_x * cos_r - floor_world_y * sin_r
-        world_x2 := floor_world_x2 * cos_r - floor_world_y * sin_r
         world_z := floor_world_x * sin_r + floor_world_y * cos_r
 
-        u := i32(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
-        v := i32(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height)) % i32(tex.texture.height)
+        u := i32(math.floor(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width))) % i32(tex.texture.width)
+        v := i32(math.floor(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height))) % i32(tex.texture.height)
 
         if u < 0 { u += i32(tex.texture.width) }
         if v < 0 { v += i32(tex.texture.height) }
@@ -290,7 +292,7 @@ draw_floor :: proc(
         dest_rect := rl.Rectangle{x=f32(x), y=f32(py), width=f32(width), height=f32(RAYRES)}
         src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=1, height=1}
 
-        rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
+        rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, color)
     }
 }
 
@@ -304,10 +306,12 @@ draw_ceil :: proc(
     projection_plane_dist,
     ceil_y: f32,
     ceil_end: i32,
+    tint: HSV,
 ) {
     if texture.texture == "" {
         return
     }
+    color:=hsv_to_color(tint)
     using rl
 
     screen_width := GetRenderWidth()
@@ -340,8 +344,8 @@ draw_ceil :: proc(
         world_x2 := ceil_world_x2 * cos_r - ceil_world_y * sin_r
         world_z := ceil_world_x * sin_r + ceil_world_y * cos_r
 
-        u := i32(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width)) % i32(tex.texture.width)
-        v := i32(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height)) % i32(tex.texture.height)
+        u := i32(math.floor(((world_x + texture.offset.x) / tex.width) * f32(tex.texture.width))) % i32(tex.texture.width)
+        v := i32(math.floor(((world_z + texture.offset.y) / tex.height) * f32(tex.texture.height))) % i32(tex.texture.height)
 
         if u < 0 { u += i32(tex.texture.width) }
         if v < 0 { v += i32(tex.texture.height) }
@@ -349,7 +353,7 @@ draw_ceil :: proc(
         dest_rect := rl.Rectangle{x=f32(x), y=f32(py), width=f32(width), height=f32(RAYRES)}
         src_rect := rl.Rectangle{x=f32(u), y=f32(v), width=1, height=1 }
 
-        rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, WHITE)
+        rl.DrawTexturePro(tex.texture, src_rect, dest_rect, rl.Vector2{0,0}, 0, color)
     }
 }
 
@@ -438,6 +442,7 @@ render_ray :: proc(world: ^World,
                     .Top,
                     can_int,
                     decal_player,
+                    info.tint,
                 )
                 height -= ceiling_y-iceiling_y
                 wall_top=bottom
@@ -462,6 +467,7 @@ render_ray :: proc(world: ^World,
                     .Bottom,
                     can_int,
                     decal_player,
+                    info.tint,
                 )
                 wall_bottom=top
                 height-=iinfo.floor-info.floor
@@ -479,6 +485,7 @@ render_ray :: proc(world: ^World,
         projection_plane_dist,
         info.floor,
         math.min(floor_end, GetRenderHeight()),
+        info.tint,
     )
     draw_ceil(
         i32(x),
@@ -490,6 +497,7 @@ render_ray :: proc(world: ^World,
         projection_plane_dist,
         info.floor+info.height,
         math.max(ceil_end, 0),
+        info.tint,
     )
 
     draw_rect(
@@ -508,7 +516,8 @@ render_ray :: proc(world: ^World,
         world,
         .Middle,
         can_int,
-        decal_player
+        decal_player,
+        info.tint,
     )
     return collide, info
 }

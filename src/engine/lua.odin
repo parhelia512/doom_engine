@@ -270,11 +270,8 @@ load_file :: proc(file: string, world: ^World, dir: string, allocator:=context.a
     return state
 }
 
-call_decal :: proc(state: ^lua.State, world: ^World, decal: int) {
-    if decal < 0 || decal >= len(world.decals) {
-        return
-    }
-    fn, ok:=world.decals[decal].on_interact.?
+call_interaction :: proc(state: ^lua.State, int: Maybe(c.int)) {
+    fn, ok := int.?
     if !ok {
         return
     }
@@ -356,10 +353,11 @@ freeref_def :: proc(state: ^lua.State, ref: c.int) {
 }
 
 freeref_maybe:: proc(state: ^lua.State, ref: Maybe(c.int)) {
-    if ref == nil {
+    ref, ok := ref.?
+    if !ok {
         return
     }
-    lua.L_unref(state, lua.REGISTRYINDEX, ref.?)
+    lua.L_unref(state, lua.REGISTRYINDEX, ref)
 }
 
 freeref::proc{freeref_def, freeref_maybe}

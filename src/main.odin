@@ -69,8 +69,8 @@ controls :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State
             rot += 1 
         }
         if IsKeyPressed(.E) {
-            if player.decal != -1 && !EDITOR {
-                engine.call_decal(state, world, player.decal) 
+            if player.decal != -1 && !EDITOR && player.decal < len(world.decals){
+                engine.call_interaction(state, world.decals[player.decal].on_interact)
             }
         }
     }
