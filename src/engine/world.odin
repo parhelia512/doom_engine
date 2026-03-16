@@ -26,6 +26,7 @@ Line :: struct {
     sf, sb: int,
     texture: LineTexture,
     tag: u16,
+    on_collide: Maybe(c.int) `cbor:"-"`,
 }
 
 LinePart :: enum {
@@ -60,6 +61,7 @@ World :: struct {
     decals: [dynamic]Decal,
     player_start: Vec2,
     player_start_rot: int,
+    to_load: Maybe(string) `cbor:"-"`,
 }
 
 Player :: struct {
@@ -71,6 +73,23 @@ Player :: struct {
 }
 
 free_world :: proc(world: ^World) {
+    for i in 0..<len(world.lines) {
+        world.lines[i].on_collide = nil
+        delete(world.lines[i].texture.back.top.texture)
+        delete(world.lines[i].texture.back.middle.texture)
+        delete(world.lines[i].texture.back.bottom.texture)
+        delete(world.lines[i].texture.front.top.texture)
+        delete(world.lines[i].texture.front.middle.texture)
+        delete(world.lines[i].texture.front.bottom.texture)
+    }
+    for i in 0..<len(world.decals) {
+        world.decals[i].on_interact = nil
+        delete(world.decals[i].texture)
+    }
+    for i in 0..<len(world.sectors) {
+        delete(world.sectors[i].ceil_text.texture)
+        delete(world.sectors[i].floor_text.texture)
+    }
     delete(world.lines)
     delete(world.points)
     delete(world.sectors)
@@ -84,10 +103,10 @@ CollisionInfo :: struct {
     is_portal: bool,
     ceil,
     floor: f32,
+    interact: Maybe(c.int),
 }
 
 check_collide :: proc(ray_start, ray_end: Vec2, world: ^World) -> (bool, CollisionInfo) {
-    using rl
     collide_:=false
     dist_:f32=math.inf_f32(1)
     info:=CollisionInfo{}
@@ -101,7 +120,7 @@ check_collide :: proc(ray_start, ray_end: Vec2, world: ^World) -> (bool, Collisi
             continue
         }
         collision: Vec2
-        collide:=CheckCollisionLines(p1, p2, ray_start, ray_end, &collision) 
+        collide:=rl.CheckCollisionLines(p1, p2, ray_start, ray_end, &collision) 
         if collide {
             d:=dist2(ray_start, collision)
             if d<dist_ {
@@ -111,7 +130,8 @@ check_collide :: proc(ray_start, ray_end: Vec2, world: ^World) -> (bool, Collisi
                     p1=p1,
                     p2=p2,
                     point=collision,
-                    is_portal=line.portal
+                    is_portal=line.portal,
+                    interact=line.on_collide,
                 } 
                 if line.portal {
                     if line.portal_solid {

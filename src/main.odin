@@ -44,50 +44,48 @@ WINDOW_FOCUS:=false
 //TASK(20260224-130850-786-n6-230): give the player a width
 
 controls :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State) {
-    using engine
-    using rl
-    move : Vec2
+    move : engine.Vec2
     rot : f32
     if !WINDOW_FOCUS {
-        if IsKeyDown(.W) {
+        if rl.IsKeyDown(.W) {
             move.y -= 1 
         }
-        if IsKeyDown(.S) {
+        if rl.IsKeyDown(.S) {
             move.y += 1 
         }
-        if IsKeyDown(.A) {
+        if rl.IsKeyDown(.A) {
             move.x -= 1 
         }
-        if IsKeyDown(.D) {
+        if rl.IsKeyDown(.D) {
             move.x += 1 
         }
 
-        if IsKeyDown(.LEFT) {
+        if rl.IsKeyDown(.LEFT) {
             rot -= 1 
         }
-        if IsKeyDown(.RIGHT) {
+        if rl.IsKeyDown(.RIGHT) {
             rot += 1 
         }
-        if IsKeyPressed(.E) {
+        if rl.IsKeyPressed(.E) {
             if player.decal != -1 && !EDITOR && player.decal < len(world.decals){
                 engine.call_interaction(state, world.decals[player.decal].on_interact)
             }
         }
     }
-    if IsKeyPressed(.F3) {
+    if rl.IsKeyPressed(.F3) {
         GOD=!GOD
     }
-    if IsKeyPressed(.F4) {
+    if rl.IsKeyPressed(.F4) {
         DEBUG=!DEBUG
     }
-    if(IsKeyPressed(.F2)) {
+    if rl.IsKeyPressed(.F2) {
         SHOWFPS=!SHOWFPS
     }
-    if(IsKeyPressed(.F5)) {
+    if rl.IsKeyPressed(.F5) {
         EDITOR=!EDITOR
     }
 
-    if IsKeyDown(.LEFT_SHIFT) && !WINDOW_FOCUS {
+    if rl.IsKeyDown(.LEFT_SHIFT) && !WINDOW_FOCUS {
         player.height = PLAYER_CROUCH
     } else {
         player.height = PLAYER_HEIGHT
@@ -97,21 +95,21 @@ controls :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State
         return
     }
     wanted_y :=world.sectors[player.sector].floor
-    if IsKeyDown(.SPACE) && !WINDOW_FOCUS {
+    if rl.IsKeyDown(.SPACE) && !WINDOW_FOCUS {
         if player.pos.y <= wanted_y {
             player.vel.y += JUMP_HEIGHT 
         }
     }
 
-    dt := GetFrameTime()
+    dt := rl.GetFrameTime()
     player.rot += rot*dt*PLAYER_ROT_SPEED
-    move = norm(move);
-    move = rotate(move, player.rot)*PLAYER_SPEED;
+    move = engine.norm(move);
+    move = engine.rotate(move, player.rot)*PLAYER_SPEED;
     player.vel.x += move.x;
     player.vel.z += move.y;
     player.vel.y -= GRAVITY*dt;
 
-    move_player(player, world, player.vel*Vec3{1, GRAVITY, 1}*dt)
+    move_player(player, world, player.vel*engine.Vec3{1, GRAVITY, 1}*dt, state)
     player.vel.x -= player.vel.x * FRICTION * dt
     player.vel.z -= player.vel.z * FRICTION * dt
 
@@ -132,8 +130,8 @@ controls :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State
         player.height = PLAYER_CROUCH
     }
 
-    if mag(player.vel) > MAX_VEL {
-        n := norm(player.vel.xz)*MAX_VEL
+    if engine.mag(player.vel) > MAX_VEL {
+        n := engine.norm(player.vel.xz)*MAX_VEL
         player.vel.x = n.x 
         player.vel.z = n.y 
     } 
@@ -144,11 +142,10 @@ controls :: proc(player: ^engine.Player, world: ^engine.World, state: ^lua.State
 STEP_HEIGHT :: 1.5
 
 get_shift :: proc(player, mov: engine.Vec2) -> engine.Vec2 {
-    using engine
-    return norm(mov-player)*PLAYER_RADIUS
+    return engine.norm(mov-player)*PLAYER_RADIUS
 }
 //TASK(20260228-232552-080-n6-360): make collision detection less janky
-move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3) {
+move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Vec3, state: ^lua.State) {
     if GOD {
         player.pos += move
         return
@@ -161,16 +158,15 @@ move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Ve
     if math.abs(move.x) < 1e-6 {
         move.x = 0
     }
-    using engine 
-    using rl
     e:f32=0.005
     player_eye:=player.pos.y+player.height
 
-    newx := Vec2{player.pos.x + move.x, player.pos.z}
+    newx := engine.Vec2{player.pos.x + move.x, player.pos.z}
     shiftx:=get_shift(player.pos.xz, newx)
-    collidex, infox := check_collide(player.pos.xz, newx+shiftx, world)
+    collidex, infox := engine.check_collide(player.pos.xz, newx+shiftx, world)
     infox.point-=shiftx
     if collidex {
+        engine.call_interaction(state, infox.interact)
         if infox.is_portal {
             if infox.floor-player.pos.y >= STEP_HEIGHT+0.1 || infox.ceil-player_eye < 1{
                 epsilon := math.sign_f32(infox.point.x-player.pos.x)*e
@@ -188,11 +184,12 @@ move_player:: proc(player: ^engine.Player, world: ^engine.World, move: engine.Ve
         player.pos.x = newx.x
     }
 
-    newz := Vec2{player.pos.x, player.pos.z + move.z}
+    newz := engine.Vec2{player.pos.x, player.pos.z + move.z}
     shiftz:=get_shift(player.pos.xz, newz)
-    collidez, infoz := check_collide(player.pos.xz, newz+shiftz, world)
+    collidez, infoz := engine.check_collide(player.pos.xz, newz+shiftz, world)
     infoz.point-=shiftz
     if collidez {
+        engine.call_interaction(state, infoz.interact)
         if infoz.is_portal {
             if infoz.floor-player.pos.y >= STEP_HEIGHT +0.1 || infoz.ceil-player_eye < 1{
                 epsilon := math.sign_f32(infoz.point.y-player.pos.z)*e
@@ -248,7 +245,7 @@ create_commands :: proc() {
     }, 1, 1)
 }
 
-rl_to_log :: proc"contextless"(level: rl.TraceLogLevel) -> (bool, log.Level) {
+rl_to_log :: proc(level: rl.TraceLogLevel) -> (bool, log.Level) {
     #partial switch level {
     case rl.TraceLogLevel.INFO: return true, log.Level.Info
     case rl.TraceLogLevel.DEBUG: return true, log.Level.Debug
@@ -265,50 +262,48 @@ main :: proc() {
     logger = windows.logger(opts={.Level, .Terminal_Color})
     context.logger = logger
     rl.SetTraceLogCallback(proc"c"(level: rl.TraceLogLevel, text: cstring, args: ^c.va_list) {
+        context=runtime.default_context()
+        context.logger = logger 
         exist, level := rl_to_log(level)
         if !exist {
             return
         }
-        context=runtime.default_context()
-        context.logger = logger 
         buf: [1024]u8
         libc.vsprintf(&buf[0], text, args)
         log.log(level, string(buf[:]))
     })
     rl.SetTraceLogLevel(rl.TraceLogLevel.WARNING)
-    using rl
-    using engine
-    world: World
-    player: Player
+    world: engine.World
+    player: engine.Player
     state:^lua.State
-    InitWindow(WIDTH, HEIGHT, TITLE)
+    rl.InitWindow(WIDTH, HEIGHT, TITLE)
     if len(os.args) > 1 {
-        load_map_pack(&world, os.args[1], &player, &state, "map01")
+        engine.load_map_pack(&world, os.args[1], &player, &state, "map01")
     } else {
-        gen_default(10, 10)
+        engine.gen_default(10, 10)
     }
 
-    defer if state != nil {close(state, &world)}
+    defer if state != nil {engine.close(state, &world)}
 
     create_commands()
 
     player.height = PLAYER_HEIGHT
-    defer CloseWindow()
-    defer free_world(&world);
+    defer rl.CloseWindow()
+    defer engine.free_world(&world);
 
     ctx:=rlmu.init_scope()
 
-    SetExitKey(.KEY_NULL)
+    rl.SetExitKey(.KEY_NULL)
 
-    for !WindowShouldClose() {
+    for !rl.WindowShouldClose() {
         update(&player, &world, state)
-        BeginDrawing()
-        ClearBackground(BLACK)
+        rl.BeginDrawing()
+        rl.ClearBackground(rl.BLACK)
         if len(world.sectors) > 0 {
-            render_world(&world, &player)
+            engine.render_world(&world, &player)
         }
         if SHOWFPS {
-            DrawFPS(10, 10)
+            rl.DrawFPS(10, 10)
         }
         w:i32=20
         x:i32=WIDTH/2-w/2
@@ -319,14 +314,21 @@ main :: proc() {
         x2:i32=WIDTH/2-w2/2
         h2:i32=w
         y2:i32=HEIGHT/2-h2/2
-        DrawRectangle(x-2, y-2, w+4, h+4, BLACK)
-        DrawRectangle(x2-2, y2-2, w2+4, h2+4, BLACK)
-        DrawRectangle(x, y, w, h, WHITE)
-        DrawRectangle(x2, y2, w2, h2, WHITE)
+        rl.DrawRectangle(x-2, y-2, w+4, h+4, rl.BLACK)
+        rl.DrawRectangle(x2-2, y2-2, w2+4, h2+4, rl.BLACK)
+        rl.DrawRectangle(x, y, w, h, rl.WHITE)
+        rl.DrawRectangle(x2, y2, w2, h2, rl.WHITE)
 
         draw_ui(&world, &player, &state)
 
-        EndDrawing()
+        rl.EndDrawing()
+        imap, ok:=world.to_load.?
+        if ok {
+            engine.load_map_from_pack(&world, &player, &state, imap)
+            delete(imap)
+            world.to_load = nil
+        }
     }
+    engine.free_textures()
 }
 

@@ -91,8 +91,6 @@ Command_Image :: struct {
 
 draw_texture :: proc(ctx: ^mu.Context, texture: ^rl.Texture) -> mu.Rect {
     rect := mu.layout_next(ctx)
-    rect.w = texture.width
-    rect.h = texture.height
     command:=cast(^Command_Image)mu.push_command(ctx, mu.Command_Rect, size_of(Command_Image)-size_of(mu.Command_Rect))
     command.rect = rect
     command.text = texture

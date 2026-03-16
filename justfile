@@ -12,5 +12,5 @@ run-debug-gf2 arg="":
     gf2 --args {{out}} {{arg}}
     
 run-debug arg="":
-    just build -debug
+    just build "-debug -sanitize:address"
     {{out}} {{arg}}

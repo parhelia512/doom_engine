@@ -42,7 +42,6 @@ Info :: struct {
 }
 
 ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) {
-    using rl
     info:=Info{
         dist=RAYLEN+1,
     }
@@ -66,7 +65,7 @@ ray_collide :: proc(world: ^World, ray_start: Vec2, angle: f32) -> (bool, Info) 
         }
         sector:=world.sectors[sector_idx]
         collision: Vec2
-        collide:=CheckCollisionLines(p1, p2, ray_start, ray_end, &collision) 
+        collide:=rl.CheckCollisionLines(p1, p2, ray_start, ray_end, &collision) 
         if collide {
             d:=dist(ray_start, collision)
             if d<info.dist {
@@ -129,8 +128,6 @@ draw_rect :: proc(
     decal_player: ^int,
     tint: HSV,
 ) {
-    using rl;
-
     wall_vec := p2 - p1
     wall_len := dist(p1, p2)
     hit_vec := hit_point - p1
@@ -255,9 +252,8 @@ draw_floor :: proc(
         return
     }
     color:=hsv_to_color(tint)
-    using rl
 
-    screen_width := GetRenderWidth()
+    screen_width := rl.GetRenderWidth()
     tex := get_texture(texture.texture)
 
     player_eye := player.pos.y + player.height
@@ -312,9 +308,8 @@ draw_ceil :: proc(
         return
     }
     color:=hsv_to_color(tint)
-    using rl
 
-    screen_width := GetRenderWidth()
+    screen_width := rl.GetRenderWidth()
     tex := get_texture(texture.texture)
 
     player_eye := player.pos.y + player.height
@@ -372,16 +367,15 @@ render_ray :: proc(world: ^World,
     ceil_end: i32,
     add_dist: f32 = 0,
 ) -> (bool, Info) {
-    using rl;
     x:= f32(i)*width
     collide, info:=ray_collide(world, ray_start, angle)
     if max_depth <= 0 {
-        DrawRectangle(
+        rl.DrawRectangle(
             i32(x),
             i32(ceil_end),
             i32(width),
             i32(floor_end-ceil_end),
-            BLACK
+            rl.BLACK
         )
         return collide, info
     }
@@ -484,7 +478,7 @@ render_ray :: proc(world: ^World,
         screen_center_y,
         projection_plane_dist,
         info.floor,
-        math.min(floor_end, GetRenderHeight()),
+        math.min(floor_end, rl.GetRenderHeight()),
         info.tint,
     )
     draw_ceil(
@@ -531,9 +525,8 @@ change :: proc(c: int) {
 }
 
 render_world :: proc(world: ^World, player: ^Player) {
-    using rl
     if frame <= 0 {
-        fps:=GetFPS()
+        fps:=rl.GetFPS()
         if fps < 50 {
             change(1)
         } else if fps > 300 {
@@ -545,8 +538,8 @@ render_world :: proc(world: ^World, player: ^Player) {
     raynum:=math.floor_f32(f32(rl.GetRenderWidth())/f32(RAYRES))
     delta_angle:=FOV/(raynum-1)
     width:=f32(RAYRES)
-    projection_plane_dist := f32(GetRenderWidth()/2) / math.tan_f32(FOV/2)
-    screen_center_y := f32(GetRenderHeight())/2
+    projection_plane_dist := f32(rl.GetRenderWidth()/2) / math.tan_f32(FOV/2)
+    screen_center_y := f32(rl.GetRenderHeight())/2
 
     min := player.rot - INTERACT_FOV/2
     max := player.rot + INTERACT_FOV/2
@@ -569,7 +562,7 @@ render_world :: proc(world: ^World, player: ^Player) {
             projection_plane_dist,
             player.pos.xz,
             MAX_DEPTH,
-            GetRenderHeight(),
+            rl.GetRenderHeight(),
             0,
         )
         if collide {

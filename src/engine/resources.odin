@@ -8,7 +8,7 @@ TextureData :: struct {
     width, height: f32,
 }
 
-textures:map[string]TextureData
+textures:map[string]TextureData = nil
 
 @private
 DEFAULT_NAME::"__default"
@@ -18,19 +18,18 @@ gen_default::proc(width, height:f32) {
     if ok {
         return
     }
-    using rl
-    image := GenImageColor(8, 8, BLACK)
-    defer UnloadImage(image)
+    image := rl.GenImageColor(8, 8, rl.BLACK)
+    defer rl.UnloadImage(image)
     for x in 0..<8 {
         for y in 0..<8 {
             if x%2 == y%2 {
-                ImageDrawPixel(&image, i32(x), i32(y), PURPLE);
+                rl.ImageDrawPixel(&image, i32(x), i32(y), rl.PURPLE);
             }
         }
     }
-    texture := LoadTextureFromImage(image)
+    texture := rl.LoadTextureFromImage(image)
     if DEFAULT_NAME in textures {
-        UnloadTexture(textures[DEFAULT_NAME].texture)
+        rl.UnloadTexture(textures[DEFAULT_NAME].texture)
     }
     textures[DEFAULT_NAME] = TextureData {
         texture=texture,
@@ -52,23 +51,30 @@ get_texture::proc(name: string) -> TextureData {
 }
 
 set_texture::proc(name, file:string, width, height: f32) {
-    using rl
     str := strings.clone_to_cstring(file)
     defer delete(str)
-    image := LoadImage(str)
+    image := rl.LoadImage(str)
     if image.data == nil {
         log.errorf("failed to load image: %s", file)
         return
     }
-    defer UnloadImage(image)
+    defer rl.UnloadImage(image)
     if name in textures {
-        UnloadTexture(textures[name].texture)
+        rl.UnloadTexture(textures[name].texture)
     }
-    texture:=LoadTextureFromImage(image)
+    texture:=rl.LoadTextureFromImage(image)
     textures[name] = TextureData {
         texture=texture,
         width=width,
         height=height,
     }
     log.infof("loaded image: %s", file)
+}
+
+free_textures::proc() {
+    for k, v in textures {
+        rl.UnloadTexture(v.texture)
+        delete(k)
+    }
+    delete(textures)
 }

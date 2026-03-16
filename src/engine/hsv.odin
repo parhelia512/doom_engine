@@ -123,7 +123,6 @@ color_picker::proc(hsv:^HSV, center: Vec2, r:f32, o:f32, data: ^ColorPickerData,
         hsv[0] -= 360
     }
     edata:=ColorPickerDataExtra{r, o, center}
-    using rl
     a, b, c := get_tri_points(center, r, hsv[0]) 
     draw_tri(a, b, c, center, hsv[0], r+o, proc(p:Vec2, d: rawptr) {
         d:=cast(^ColorPickerDataExtra)d
@@ -133,8 +132,8 @@ color_picker::proc(hsv:^HSV, center: Vec2, r:f32, o:f32, data: ^ColorPickerData,
             rl.DrawPixelV(p, c)
         }
     }, &edata)
-    if IsMouseButtonPressed(.LEFT) && focus {
-        mouse := GetMousePosition() 
+    if rl.IsMouseButtonPressed(.LEFT) && focus {
+        mouse := rl.GetMousePosition() 
         b, n:=vtb(a, b, c, mouse)
         if n {
             data.drag = .Tri
@@ -150,37 +149,37 @@ color_picker::proc(hsv:^HSV, center: Vec2, r:f32, o:f32, data: ^ColorPickerData,
             }
         }
     }
-    if IsMouseButtonReleased(.LEFT) {
+    if rl.IsMouseButtonReleased(.LEFT) {
         data.drag = .None
     }
     switch data.drag {
     case .None:
     case .Tri:
-        mouse := GetMousePosition() 
+        mouse := rl.GetMousePosition() 
         b, n := vtb(a, b, c, mouse)
         nb:=clamp_bary(b, n)
         s, v := btsv(nb)
         hsv[1]= s
         hsv[2]= v
     case .Ring:
-        mouse := GetMousePosition()
+        mouse := rl.GetMousePosition()
         ang := angle_around(mouse, center)
 
         hsv[0] = ang / math.PI * 180 + 90
     }
     ce:=btv(a, b, c, svtb(hsv[1], hsv[2]))
     s:f32=8
-    DrawRectangleV(ce-(s)/2, {s, s}, BLACK)
-    DrawRectangleV(ce-(s-2)/2, {s-2, s-2}, WHITE)
-    DrawRectangleV(ce-(s-4)/2, {s-4, s-4}, ColorFromHSV(hsv[0], hsv[1], hsv[2]))
+    rl.DrawRectangleV(ce-(s)/2, {s, s}, rl.BLACK)
+    rl.DrawRectangleV(ce-(s-2)/2, {s-2, s-2}, rl.WHITE)
+    rl.DrawRectangleV(ce-(s-4)/2, {s-4, s-4}, rl.ColorFromHSV(hsv[0], hsv[1], hsv[2]))
 
     //I just learned odin allows unicode characters for idents too
     þ:f32=hsv.x/180*math.PI
     þ2:f32=(hsv.x+1)/180*math.PI
     re:=rotate_around(center, {0, -r}+center, þ)
     oe:=rotate_around(center, {0, -(r+o)}+center, þ)
-    DrawLineV(re, oe, WHITE)
+    rl.DrawLineV(re, oe, rl.WHITE)
     re=rotate_around(center, {0, -r}+center, þ2)
     oe=rotate_around(center, {0, -(r+o)}+center, þ2)
-    DrawLineV(re, oe, BLACK)
+    rl.DrawLineV(re, oe, rl.BLACK)
 }

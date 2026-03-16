@@ -88,7 +88,7 @@ case .Error:
     return nil
 }
 
-remove_line_point::proc(point: ^engine.Vec2, world: ^engine.World) ->bool {
+remove_line_point::proc(state: ^lua.State, point: ^engine.Vec2, world: ^engine.World) ->bool {
     idx:=-1
     for i in 0..<len(world.points) {
         if &world.points[i] == point {
@@ -96,10 +96,10 @@ remove_line_point::proc(point: ^engine.Vec2, world: ^engine.World) ->bool {
             break
         }
     }
-    return remove_line(idx, world)
+    return remove_line(state, idx, world)
 }
 
-remove_line_point_idx::proc(idx: int, world: ^engine.World) ->bool {
+remove_line_point_idx::proc(state: ^lua.State, idx: int, world: ^engine.World) ->bool {
     if idx == -1 {
         return false
     }
@@ -128,12 +128,26 @@ remove_line_point_idx::proc(idx: int, world: ^engine.World) ->bool {
             checks[p2^] = true 
         }
         if p1^ == idx && !cont1 {
+            engine.freeref(state, world.lines[i].on_collide)
+            delete(world.lines[i].texture.front.top.texture)
+            delete(world.lines[i].texture.front.middle.texture)
+            delete(world.lines[i].texture.front.bottom.texture)
+            delete(world.lines[i].texture.back.top.texture)
+            delete(world.lines[i].texture.back.middle.texture)
+            delete(world.lines[i].texture.back.bottom.texture)
             ordered_remove(&world.lines, i)
             if checks[p2^] == nil {
                 checks[p2^] = false
             } 
             end_at = i
         } else if p2^ == idx && !cont2 {
+            engine.freeref(state, world.lines[i].on_collide)
+            delete(world.lines[i].texture.front.top.texture)
+            delete(world.lines[i].texture.front.middle.texture)
+            delete(world.lines[i].texture.front.bottom.texture)
+            delete(world.lines[i].texture.back.top.texture)
+            delete(world.lines[i].texture.back.middle.texture)
+            delete(world.lines[i].texture.back.bottom.texture)
             ordered_remove(&world.lines, i)
             if checks[p1^] == nil {
                 checks[p1^] = false
@@ -178,7 +192,7 @@ is_point_used::proc(point: int, world:^engine.World)-> bool {
     return false
 }
 
-remove_line_line::proc(point: [2]^engine.Vec2, world: ^engine.World)->bool {
+remove_line_line::proc(state: ^lua.State, point: [2]^engine.Vec2, world: ^engine.World)->bool {
     idx := -1
     check:=[2]int{-1, -1}
     for i in 0..<len(world.lines) {
@@ -193,6 +207,14 @@ remove_line_line::proc(point: [2]^engine.Vec2, world: ^engine.World)->bool {
     if idx == -1 {
         return false
     }
+
+    engine.freeref(state, world.lines[idx].on_collide)
+    delete(world.lines[idx].texture.front.top.texture)
+    delete(world.lines[idx].texture.front.middle.texture)
+    delete(world.lines[idx].texture.front.bottom.texture)
+    delete(world.lines[idx].texture.back.top.texture)
+    delete(world.lines[idx].texture.back.middle.texture)
+    delete(world.lines[idx].texture.back.bottom.texture)
     ordered_remove(&world.lines, idx)
     first := math.min(check[0], check[1])
     second := math.max(check[0], check[1])
@@ -219,6 +241,8 @@ remove_sector::proc(idx: int, world: ^engine.World) ->bool {
     if idx == -1 {
         return false
     }
+    delete(world.sectors[idx].ceil_text.texture)
+    delete(world.sectors[idx].floor_text.texture)
     ordered_remove(&world.sectors, idx)
     for i in 0..<len(world.lines) {
         sf:=&world.lines[i].sf
@@ -240,38 +264,37 @@ remove_sector::proc(idx: int, world: ^engine.World) ->bool {
 }
 
 editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.Player, state: ^^lua.State) {
-    using rl
-    if IsKeyPressed(.ONE) {
+    if rl.IsKeyPressed(.ONE) {
         line_maker_type = .NONE
         mode=MODE.Point
     }
-    if IsKeyPressed(.TWO) {
+    if rl.IsKeyPressed(.TWO) {
         line_maker_type = .NONE
         mode=MODE.Line
     }
-    if IsKeyPressed(.THREE) {
+    if rl.IsKeyPressed(.THREE) {
         line_maker_type = .NONE
         mode=MODE.Player
     }
-    if IsKeyPressed(.FOUR) {
+    if rl.IsKeyPressed(.FOUR) {
         line_maker_type = .NONE
         mode=MODE.Decal
     }
-    if IsKeyPressed(.S) && IsKeyDown(.LEFT_CONTROL) {
+    if rl.IsKeyPressed(.S) && rl.IsKeyDown(.LEFT_CONTROL) {
         s:=create_file_path()
         if s != nil {
             defer delete(s.?)
             engine.save_world(world, s.?)
         }
     }
-    if IsKeyPressed(.L) && IsKeyDown(.LEFT_CONTROL) {
-        if IsKeyDown(.LEFT_SHIFT) {
+    if rl.IsKeyPressed(.L) && rl.IsKeyDown(.LEFT_CONTROL) {
+        if rl.IsKeyDown(.LEFT_SHIFT) {
             s:=dir_file_path()
             if s != nil {
                 defer delete(s.?)
                 engine.load_map(world, s.?, player, state)
             }
-        } else if IsKeyDown(.LEFT_ALT) {
+        } else if rl.IsKeyDown(.LEFT_ALT) {
             s:=dir_file_path()
             if s != nil {
                 defer delete(s.?)
@@ -285,24 +308,24 @@ editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.
             }
         }
     }
-    if IsKeyPressed(.ESCAPE) {
+    if rl.IsKeyPressed(.ESCAPE) {
         line_maker_type = .NONE
     }
     switch mode {
     case .Decal:
     case .Point:
-        if (IsKeyPressed(.BACKSPACE) || IsKeyPressed(.DELETE)) && selectp != nil {
-            remove_line(selectp, world) 
+        if (rl.IsKeyPressed(.BACKSPACE) || rl.IsKeyPressed(.DELETE)) && selectp != nil {
+            remove_line(state^, selectp, world) 
             selectp = nil
         }
-        if IsKeyPressed(.P) {
+        if rl.IsKeyPressed(.P) {
             hover := get_line_hover(world, width, height)
             if hover != -1 {
                 line:=&world.lines[hover]
                 p1:=line.p1
                 p2:=line.p2
                 c:=len(world.points)
-                append(&world.points, untranslate(GetMousePosition(), width, height)) 
+                append(&world.points, untranslate(rl.GetMousePosition(), width, height)) 
                 nl := engine.Line{
                     p1 = c,
                     p2 = p2,
@@ -323,12 +346,12 @@ editor_controls::proc(width, height: i32, world: ^engine.World, player: ^engine.
             }
         }
     case .Line:
-        if (IsKeyPressed(.BACKSPACE) || IsKeyPressed(.DELETE)) && selectl[0] != nil && selectl[1] != nil {
-            remove_line(selectl, world) 
+        if (rl.IsKeyPressed(.BACKSPACE) || rl.IsKeyPressed(.DELETE)) && selectl[0] != nil && selectl[1] != nil {
+            remove_line(state^, selectl, world) 
             selectl = {nil, nil}
         }
-        if IsKeyPressed(.L) && line_maker_type == .NONE && !IsKeyDown(.LEFT_CONTROL) {
-            if IsKeyDown(.LEFT_SHIFT) || IsKeyDown(.RIGHT_SHIFT) {//add line to pre-existing points
+        if rl.IsKeyPressed(.L) && line_maker_type == .NONE && !rl.IsKeyDown(.LEFT_CONTROL) {
+            if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) {//add line to pre-existing points
                 line_maker_type = .POINT
                 line_maker_point = -1
             } else { //create line and points
@@ -385,29 +408,28 @@ HOVER_COLOR :: rl.BLUE
 SELECTED_COLOR :: rl.RED
 
 handle_collide_point::proc(p1, p2: engine.Vec2, cp1, cp2, cline: ^rl.Color, op1, op2: ^engine.Vec2, focus: bool) {
-    using rl
     if hoverp == nil && focus && dragp == nil {
-        if CheckCollisionCircles(p1, 2, GetMousePosition(), 2) {
+        if rl.CheckCollisionCircles(p1, 2, rl.GetMousePosition(), 2) {
             cp1^ = HOVER_COLOR
             hoverp = op1 
-            if IsMouseButtonPressed(.RIGHT) {
+            if rl.IsMouseButtonPressed(.RIGHT) {
                 selectp = op1
             }
-            if IsMouseButtonDown(.LEFT) {
+            if rl.IsMouseButtonDown(.LEFT) {
                 selectp = op1
                 dragp = op1
-                offsetp = GetMousePosition() - p1
+                offsetp = rl.GetMousePosition() - p1
             }
-        } else if CheckCollisionCircles(p2, 2, GetMousePosition(), 2) {
+        } else if rl.CheckCollisionCircles(p2, 2, rl.GetMousePosition(), 2) {
             cp2^ = HOVER_COLOR
             hoverp = op2 
-            if IsMouseButtonPressed(.RIGHT) {
+            if rl.IsMouseButtonPressed(.RIGHT) {
                 selectp = op2
             }
-            if IsMouseButtonDown(.LEFT) {
+            if rl.IsMouseButtonDown(.LEFT) {
                 selectp = op2
                 dragp = op2
-                offsetp = GetMousePosition() - p2
+                offsetp = rl.GetMousePosition() - p2
             }
         }
     } else {
@@ -435,12 +457,11 @@ hovers := -1
 selects := -1
 
 get_line_hover::proc(world: ^engine.World, width, height: i32)->int {
-    using rl
     for i in 0..<len(world.lines) {
         line:=world.lines[i]
         p1:=translate(world.points[line.p1], width, height)
         p2:=translate(world.points[line.p2], width, height)
-        if CheckCollisionCircleLine(GetMousePosition(), 2, p1, p2) {
+        if rl.CheckCollisionCircleLine(rl.GetMousePosition(), 2, p1, p2) {
             return i
         }
     }
@@ -448,18 +469,18 @@ get_line_hover::proc(world: ^engine.World, width, height: i32)->int {
 }
 
 handle_collide_line::proc(p1, p2: engine.Vec2, cp1, cp2, cline: ^rl.Color, op1, op2: ^engine.Vec2, focus: bool) {
-    using rl
-    if !hoverl && CheckCollisionCircleLine(GetMousePosition(), 2, p1, p2) && focus && dragl=={nil, nil} {
+    if !hoverl && rl.CheckCollisionCircleLine(rl.GetMousePosition(), 2, p1, p2) && focus && dragl=={nil, nil} {
         hoverl = true
         cline^ = HOVER_COLOR
 
-        if IsMouseButtonPressed(.RIGHT) && line_maker_type == .NONE {
+        if rl.IsMouseButtonPressed(.RIGHT) && line_maker_type == .NONE {
             selectl = {op1, op2}
         }
-        if IsMouseButtonDown(.LEFT) && line_maker_type == .NONE {
+        if rl.IsMouseButtonDown(.LEFT) && line_maker_type == .NONE {
             selectl = {op1, op2}
             dragl = {op1, op2}
-            offsetl = {GetMousePosition() - p1, GetMousePosition() - p2}
+            mouse:=rl.GetMousePosition()
+            offsetl = {mouse - p1, mouse - p2}
         }
     }
 
@@ -478,20 +499,19 @@ get_idx::proc($T: typeid, arr:^[dynamic]T, val: T)->int {
 }
 
 draw_line_maker_line :: proc(world: ^engine.World, width, height: i32) {
-    using rl
     if line_maker_line == nil {
-        if IsMouseButtonPressed(.LEFT) {
-            line_maker_line = GetMousePosition()
+        if rl.IsMouseButtonPressed(.LEFT) {
+            line_maker_line = rl.GetMousePosition()
         }
         return
     }
-    DrawLineV(line_maker_line.?, GetMousePosition(), WHITE)
-    if IsMouseButtonPressed(.LEFT) {
+    rl.DrawLineV(line_maker_line.?, rl.GetMousePosition(), rl.WHITE)
+    if rl.IsMouseButtonPressed(.LEFT) {
         line_maker_type = .NONE
         p1 := len(world.points)
         append(&world.points, untranslate(line_maker_line.?, width, height))
         p2 := len(world.points)
-        append(&world.points, untranslate(GetMousePosition(), width, height))
+        append(&world.points, untranslate(rl.GetMousePosition(), width, height))
         append(&world.lines, engine.Line{
             p1=p1,
             p2=p2,
@@ -502,10 +522,9 @@ draw_line_maker_line :: proc(world: ^engine.World, width, height: i32) {
 }
 
 get_point_hover :: proc(world: ^engine.World, width, height: i32) -> int {
-    using rl
     for i in 0..<len(world.points) {
         point:=translate(world.points[i], width, height)
-        if CheckCollisionCircles(point, 2, GetMousePosition(), 2) {
+        if rl.CheckCollisionCircles(point, 2, rl.GetMousePosition(), 2) {
             return i
         }
     }
@@ -513,9 +532,8 @@ get_point_hover :: proc(world: ^engine.World, width, height: i32) -> int {
 }
 
 draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
-    using rl;
     if line_maker_point == -1 {
-        if IsMouseButtonPressed(.LEFT) {
+        if rl.IsMouseButtonPressed(.LEFT) {
             line_maker_point = get_point_hover(world, width, height)
         }
         return
@@ -523,10 +541,10 @@ draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
     p1 := line_maker_point
     p2 := get_point_hover(world, width, height)
     if p2 == -1 {
-        DrawLineV(translate(world.points[p1], width, height), GetMousePosition(), WHITE)
+        rl.DrawLineV(translate(world.points[p1], width, height), rl.GetMousePosition(), rl.WHITE)
         p2:=len(world.points)
-        if IsMouseButtonPressed(.LEFT) {
-            append(&world.points, untranslate(GetMousePosition(), width, height))
+        if rl.IsMouseButtonPressed(.LEFT) {
+            append(&world.points, untranslate(rl.GetMousePosition(), width, height))
             line_maker_type = .NONE
             append(&world.lines, engine.Line{
                 p1=p1,
@@ -536,8 +554,8 @@ draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
             })
         }
     } else {
-        DrawLineV(translate(world.points[p1], width, height), translate(world.points[p2], width, height), WHITE)
-        if IsMouseButtonPressed(.LEFT) {
+        rl.DrawLineV(translate(world.points[p1], width, height), translate(world.points[p2], width, height), rl.WHITE)
+        if rl.IsMouseButtonPressed(.LEFT) {
             line_maker_type = .NONE
             append(&world.lines, engine.Line{
                 p1=p1,
@@ -552,13 +570,12 @@ draw_line_maker_point :: proc(world: ^engine.World, width, height: i32) {
 selectd:=-1
 
 draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: bool, player: ^engine.Player, state: ^^lua.State) {
-    using rl
     hoverp = nil
     hoverl = false
     if focus {
         editor_controls(width, height, world, player, state)
     }
-    ClearBackground(BLACK)
+    rl.ClearBackground(rl.BLACK)
     i:=0
     for line in world.lines {
         op1:=&world.points[line.p1]
@@ -566,13 +583,13 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
         p1:=translate(op1^, width, height)
         p2:=translate(op2^, width, height)
 
-        cp1 := WHITE
-        cp2 := WHITE
-        cline := WHITE
+        cp1 := rl.WHITE
+        cp2 := rl.WHITE
+        cline := rl.WHITE
         if (hovers != -1 && (line.sf == hovers || line.sb == hovers)) || (selects != -1 && (line.sf == selects || line.sb == selects)) {
-            cp1 = GREEN
-            cp2 = GREEN
-            cline = GREEN
+            cp1 = rl.GREEN
+            cp2 = rl.GREEN
+            cline = rl.GREEN
         }
         switch mode {
         case .Decal:
@@ -581,9 +598,9 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
             dragp = nil
             selectp = nil
             if hoverld == i {
-                cp1 = GREEN
-                cp2 = GREEN
-                cline = GREEN
+                cp1 = rl.GREEN
+                cp2 = rl.GREEN
+                cline = rl.GREEN
             }
         case .Point:
             selectl = {nil, nil}
@@ -602,22 +619,22 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
             selectp = nil
             selectd = -1
             dp:=translate(world.player_start, width, height)
-            DrawCircleV(dp, 2, PURPLE)
-            DrawLineV(dp, dp+engine.rotate(engine.Vec2{0, -10}, math.to_radians_f32(f32(world.player_start_rot))), PURPLE)
-            if IsMouseButtonPressed(.LEFT) && focus {
-                world.player_start = untranslate(GetMousePosition(), width, height)
+            rl.DrawCircleV(dp, 2, rl.PURPLE)
+            rl.DrawLineV(dp, dp+engine.rotate(engine.Vec2{0, -10}, math.to_radians_f32(f32(world.player_start_rot))), rl.PURPLE)
+            if rl.IsMouseButtonPressed(.LEFT) && focus {
+                world.player_start = untranslate(rl.GetMousePosition(), width, height)
             }
         }
-        DrawCircleV(p1, 2, cp1)
-        DrawCircleV(p2, 2, cp2)
-        DrawLineV(p1, p2, cline)
+        rl.DrawCircleV(p1, 2, cp1)
+        rl.DrawCircleV(p2, 2, cp2)
+        rl.DrawLineV(p1, p2, cline)
         //draw normal
         dir := p2 - p1
         normal := engine.Vec2{-dir.y, dir.x}
         length := 5
         normal = normal / math.sqrt(normal.x*normal.x + normal.y*normal.y) * f32(length)
         mid := (p1 + p2) / 2
-        DrawLineV(mid, mid + normal, RED)
+        rl.DrawLineV(mid, mid + normal, rl.RED)
         i+=1
     }
     hovers = -1
@@ -636,24 +653,25 @@ draw_editor_internals::proc(world: ^engine.World, width, height: i32, focus: boo
     switch mode {
     case .Decal:
     case .Point:
-        if IsMouseButtonUp(.LEFT) {
+        if rl.IsMouseButtonUp(.LEFT) {
             dragp = nil
         }
         if dragp != nil {
-            dragp^ = untranslate(GetMousePosition()-offsetp, width, height)
+            dragp^ = untranslate(rl.GetMousePosition()-offsetp, width, height)
         }
-        if IsMouseButtonPressed(.RIGHT) && hoverp == nil {
+        if rl.IsMouseButtonPressed(.RIGHT) && hoverp == nil {
             selectp = nil
         }
     case .Line:
-        if IsMouseButtonUp(.LEFT) {
+        if rl.IsMouseButtonUp(.LEFT) {
             dragl = {nil, nil}
         }
         if dragl[0] != nil && dragl[1] != nil {
-            dragl[0]^ = untranslate(GetMousePosition()-offsetl[0], width, height)
-            dragl[1]^ = untranslate(GetMousePosition()-offsetl[1], width, height)
+            mouse:=rl.GetMousePosition()
+            dragl[0]^ = untranslate(mouse-offsetl[0], width, height)
+            dragl[1]^ = untranslate(mouse-offsetl[1], width, height)
         }
-        if IsMouseButtonPressed(.RIGHT) && !hoverl {
+        if rl.IsMouseButtonPressed(.RIGHT) && !hoverl {
             selectl = {nil, nil} 
         }
     case .Player:
@@ -698,7 +716,7 @@ draw_editor_window:: proc(ctx: ^mu.Context, render, has_focus: ^bool, world: ^en
             rl.GetMouseX()>=0 && 
             rl.GetMouseX()<=text.w&& 
             rl.GetMouseY()>=0 && 
-            rl.GetMouseY()<=text.h, 
+            rl.GetMouseY()<=text.h && color_picker_data.drag==.None, 
             player,
             state
         )
@@ -730,12 +748,14 @@ texture_dropdown :: proc(ctx: ^mu.Context, label: string, button_label: ^string)
     if mu.popup(ctx, label) {
         if .SUBMIT in mu.button(ctx, "") {
             mu.get_current_container(ctx).open = false
-            button_label^ = ""
+            delete(button_label^)
+            button_label^ = strings.clone("")
         }
         for key, _ in engine.textures {
             if .SUBMIT in mu.button(ctx, key) {
                 mu.get_current_container(ctx).open = false
-                button_label^ = key
+                delete(button_label^)
+                button_label^ = strings.clone(key)
             }
         } 
     }
@@ -939,6 +959,8 @@ get_sector :: proc(world: ^engine.World, sector: int) -> ^engine.Sector {
     return &world.sectors[sector]
 }
 
+color_picker_data:engine.ColorPickerData
+
 draw_sector_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.World) {
     sector:=get_sector(world, selects)
     if sector == nil {
@@ -968,14 +990,12 @@ draw_sector_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Wor
         rl.BeginTextureMode(color_texture)
         rl.ClearBackground(rl.BLACK)
         rl.SetMouseOffset(-x, -y)
-        @(static)
-        data:engine.ColorPickerData
         engine.color_picker(
             &sector.tint,
             {f32(text.w)/2, f32(text.h)/2},
             50,
             10,
-            &data,
+            &color_picker_data,
             ctx.hover_root == mu.get_current_container(ctx) &&
             rl.GetMouseX()>=0 && 
             rl.GetMouseX()<=text.w&& 
@@ -1047,6 +1067,7 @@ draw_decal_window:: proc(ctx: ^mu.Context, has_focus: ^bool, world: ^engine.Worl
         mu.layout_next(ctx)
         if .SUBMIT in mu.button(ctx, "remove") {
             engine.freeref(state, world.decals[selectd].on_interact)
+            delete(world.decals[selectd].texture)
             ordered_remove(&world.decals, selectd)
         }
         mu.end_panel(ctx)

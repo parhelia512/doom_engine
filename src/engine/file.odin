@@ -13,7 +13,7 @@ import rl "vendor:raylib"
 import "core:path/filepath"
 
 save_world::proc(world: ^World, file: string) {
-    handle, ferr:=os.open(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
+    handle, ferr:=os.open(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.Permissions_All)
     defer os.close(handle)
 	log.assertf(ferr == nil, "fopen error: %v", ferr)
 
@@ -24,13 +24,15 @@ save_world::proc(world: ^World, file: string) {
 }
 
 load_world::proc(world:^World, file:string, player: ^Player) {
+    world.to_load = nil;
     handle, ferr:=os.open(file, os.O_RDONLY)
     defer os.close(handle)
 	log.assertf(ferr == nil, "fopen error: %v", ferr)
-    stream:=os.stream_from_handle(handle)
+    stream:=os.to_stream(handle)
     reader:=io.to_reader(stream)
     free_world(world)
     err := cbor.unmarshal(reader, world)
+    free_all(context.temp_allocator)
 	log.assertf(err == nil, "marshal error: %v", err)
     player.pos.x = world.player_start.x
     player.pos.z = world.player_start.y
@@ -38,9 +40,9 @@ load_world::proc(world:^World, file:string, player: ^Player) {
 }
 
 load_map :: proc(world: ^World, path:string, player:^Player, state: ^^lua.State) {
-    map_file:=filepath.join({path, "map.map"}) 
+    map_file,_:=filepath.join({path, "map.map"}, context.allocator) 
     defer delete(map_file)
-    code_file:=filepath.join({path, "init.lua"}) 
+    code_file,_:=filepath.join({path, "init.lua"}, context.allocator) 
     defer delete(code_file)
 
     if os.exists(map_file) {
@@ -67,26 +69,26 @@ TextureD :: struct {
 
 load_map_pack :: proc(world: ^World, path:string, player:^Player, state: ^^lua.State, default_map: string) {
     //handle textures
-    for k, v in textures {
-        rl.UnloadTexture(v.texture)
-    }
-    clear(&textures)
+    free_textures()
+    textures = make(map[string]TextureData)
     mp:map[string]TextureD 
     defer delete(mp)
 
-    json_file:=filepath.join({path, "textures", "map.json"})
+    json_file, _:=filepath.join({path, "textures", "map.json"}, context.allocator)
     defer delete(json_file)
 
     handle, ferr:=os.open(json_file, os.O_RDONLY)
     log.assertf(ferr == nil, "fopen error: %v", ferr)
     defer os.close(handle)
-    data,_ := os.read_entire_file(handle)
+    data,_ := os.read_entire_file(handle, context.allocator)
     defer delete(data)
     err := json.unmarshal(data, &mp)
+    free_all(context.temp_allocator)
 	log.assertf(err == nil, "marshal error: %v", err)
     gen_default(10, 10)
     for k, v in mp {
-        path:=filepath.join({path, "textures", v.path})
+        defer delete(v.path)
+        path,_:=filepath.join({path, "textures", v.path}, context.allocator)
         defer delete(path)
         set_texture(k, path, v.width, v.height)
     }
@@ -100,7 +102,7 @@ load_map_pack :: proc(world: ^World, path:string, player:^Player, state: ^^lua.S
 load_map_from_pack :: proc(world: ^World, player:^Player, state: ^^lua.State, imap: string) {
     path, ok := pack.? 
     log.assert(ok, "no map pack available")
-    map_file:=filepath.join({path, "maps", imap})
+    map_file,_:=filepath.join({path, "maps", imap}, context.allocator)
     defer delete(map_file)
     load_map(world, map_file, player, state)
 }
