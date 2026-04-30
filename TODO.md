@@ -1,22 +1,20 @@
 # TODOS
-- [X] handle gravity
-- [X] handle textures
-- [X] handle flats
-- [X] make ceil and floor drawing faster
-- [ ] fix janky ceil and floor calculations
-- [X] fix the broken texture
-    because of the speed up from the ceiling and floor rendering fix, some of the textures are broken
-- [X] make a map editor
-- [X] give the player a width
-- [X] fix collision issues
-- [ ] make width effect detection here
-    When you're half way in a wall, you don't crouch, even when you should, causing a glitch
-- [ ] make this use a ring buffer
-- [ ] somehow make this part faster
-- [X] fix the bug where when the wall isn't axis aligned collisions break
-- [ ] fix accuracy in this function
-- [ ] make collision detection less janky
-- [X] add sector mode
-- [X] fix bug in editor
-- [ ] make decals cut off on the floor and ceiling
-- [ ] make player y effect this
+- [X] handle gravity: [TASK(20260220-082010-127-n6-265)](./.tasks/20260220-082010-127-n6-265)  
+- [X] handle textures: [TASK(20260220-205008-328-n6-902)](./.tasks/20260220-205008-328-n6-902)  
+- [X] handle flats: [TASK(20260223-074630-917-n6-626)](./.tasks/20260223-074630-917-n6-626)  
+- [X] make ceil and floor drawing faster: [TASK(20260223-112731-390-n6-030)](./.tasks/20260223-112731-390-n6-030)  
+- [ ] fix janky ceil and floor calculations: [TASK(20260223-112751-481-n6-798)](./.tasks/20260223-112751-481-n6-798)  
+- [X] fix the broken texture: [TASK(20260223-134545-639-n6-937)](./.tasks/20260223-134545-639-n6-937)  
+- [X] make a map editor: [TASK(20260223-135227-270-n6-248)](./.tasks/20260223-135227-270-n6-248)  
+- [X] give the player a width: [TASK(20260224-130850-786-n6-230)](./.tasks/20260224-130850-786-n6-230)  
+- [X] fix collision issues: [TASK(20260224-135345-814-n6-106)](./.tasks/20260224-135345-814-n6-106)  
+- [ ] make width effect detection here: [TASK(20260225-072207-926-n6-028)](./.tasks/20260225-072207-926-n6-028)  
+- [ ] make this use a ring buffer: [TASK(20260225-132738-406-n6-982)](./.tasks/20260225-132738-406-n6-982)  
+- [ ] somehow make this part faster: [TASK(20260226-073920-207-n6-604)](./.tasks/20260226-073920-207-n6-604)  
+- [X] fix the bug where when the wall isn't axis aligned collisions break: [TASK(20260226-082305-756-n6-666)](./.tasks/20260226-082305-756-n6-666)  
+- [ ] fix accuracy in this function: [TASK(20260227-141911-415-n6-810)](./.tasks/20260227-141911-415-n6-810)  
+- [ ] make collision detection less janky: [TASK(20260228-232552-080-n6-360)](./.tasks/20260228-232552-080-n6-360)  
+- [X] add sector mode: [TASK(20260301-001613-540-n6-328)](./.tasks/20260301-001613-540-n6-328)  
+- [X] fix bug in editor: [TASK(20260305-141521-337-n6-054)](./.tasks/20260305-141521-337-n6-054)  
+- [ ] make decals cut off on the floor and ceiling: [TASK(20260309-221524-255-n6-932)](./.tasks/20260309-221524-255-n6-932)  
+- [ ] make player y effect this: [TASK(20260309-222722-284-n6-229)](./.tasks/20260309-222722-284-n6-229)  

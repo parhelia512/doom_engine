@@ -37,6 +37,7 @@ load_world::proc(world:^World, file:string, player: ^Player) {
     player.pos.x = world.player_start.x
     player.pos.z = world.player_start.y
     player.rot = math.to_radians_f32(f32(world.player_start_rot))
+    log.infof("loaded map %s", file)
 }
 
 load_map :: proc(world: ^World, path:string, player:^Player, state: ^^lua.State) {
@@ -57,6 +58,7 @@ load_map :: proc(world: ^World, path:string, player:^Player, state: ^^lua.State)
     }
     if os.exists(code_file) {
         state^=load_file(code_file, world, path)
+        log.infof("loaded lua file %s", code_file)
     }
 }
 
